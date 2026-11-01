@@ -6,9 +6,14 @@ import { RecepcaoPage } from './pages/RecepcaoPage';
 import { AdminPage } from './pages/AdminPage';
 
 export function App() {
+  const basename =
+    typeof window !== 'undefined' && window.location.pathname.startsWith('/sunshine-filas')
+      ? '/sunshine-filas'
+      : '/';
+
   return (
     <QueueProvider>
-      <BrowserRouter>
+      <BrowserRouter basename={basename}>
         <AppShell>
           <Routes>
             <Route path="/" element={<Navigate to="/recepcao" replace />} />

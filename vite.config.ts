@@ -454,6 +454,7 @@ function sunshineApiPlugin(): Plugin {
 }
 
 export default defineConfig({
+  base: process.env.GITHUB_PAGES === 'true' ? '/sunshine-filas/' : '/',
   plugins: [react(), tailwindcss(), sunshineApiPlugin()],
   server: {
     host: '0.0.0.0',

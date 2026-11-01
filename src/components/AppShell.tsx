@@ -74,7 +74,7 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
           {/* Left: Brand Identity + Subtle Active Workstation Pill */}
           <div className="flex items-center gap-3.5">
             <img
-              src="/sunshine-logo.png"
+              src={`${import.meta.env.BASE_URL}sunshine-logo.png`}
               alt="Sunshine Hospitals"
               className="h-8 sm:h-9 w-auto object-contain"
             />
@@ -130,7 +130,7 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
               <div className="flex items-center justify-between border-b border-[#EFE9E8] pb-4">
                 <div className="flex items-center gap-3">
                   <img
-                    src="/sunshine-logo.png"
+                    src={`${import.meta.env.BASE_URL}sunshine-logo.png`}
                     alt="Sunshine Hospitals"
                     className="h-8 w-auto object-contain"
                   />
