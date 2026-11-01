@@ -460,18 +460,20 @@ fun SmartTvLoungeScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
+                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                                 Text(
                                     text = "FILA DE ESPERA — PARTICULARES & SEGUROS",
-                                    fontSize = 12.sp,
+                                    fontSize = 11.5.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = SunshineTextPrimary,
-                                    letterSpacing = 0.6.sp
+                                    letterSpacing = 0.5.sp,
+                                    maxLines = 1
                                 )
                                 Text(
                                     text = "Compare o tamanho de cada fila em tempo real",
                                     fontSize = 10.sp,
-                                    color = SunshineTextSecondary
+                                    color = SunshineTextSecondary,
+                                    maxLines = 1
                                 )
                             }
 
@@ -481,10 +483,11 @@ fun SmartTvLoungeScreen(
                             ) {
                                 Text(
                                     text = "Total: ${particularWaiting.size + seguroWaiting.size} na fila",
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.ExtraBold,
-                                    color = SunshineTextPrimary
+                                    color = SunshineTextPrimary,
+                                    maxLines = 1
                                 )
                             }
                         }
