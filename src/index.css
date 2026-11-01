@@ -1,0 +1,122 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+
+    /* Sunshine Hospitals Material You (M3) Tonal Palette */
+    --md-primary: #B71C1C;
+    --md-on-primary: #FFFFFF;
+    --md-primary-container: #FFDAD6;
+    --md-on-primary-container: #410002;
+
+    --md-secondary: #1B5E20;
+    --md-on-secondary: #FFFFFF;
+    --md-secondary-container: #C8E6C9;
+    --md-on-secondary-container: #002105;
+
+    --md-surface: #FCF8F8;
+    --md-surface-container-low: #F6F2F2;
+    --md-surface-container: #F0ECEC;
+    --md-surface-container-high: #EAE6E6;
+    --md-outline-variant: #E0D8D7;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--md-surface);
+    color: #1C1B1B;
+    overflow-x: hidden;
+  }
+
+  .font-mono-code {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Smooth Material You Animations & Transitions */
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fadeSlideRight {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes subtlePulseRing {
+  0% {
+    box-shadow: 0 0 0 0 rgba(183, 28, 28, 0.35);
+  }
+  70% {
+    box-shadow: 0 0 0 14px rgba(183, 28, 28, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(183, 28, 28, 0);
+  }
+}
+
+@keyframes tvCallHighlight {
+  0% {
+    transform: scale(0.97);
+    box-shadow: 0 0 0 0 rgba(183, 28, 28, 0.5);
+  }
+  40% {
+    transform: scale(1.015);
+    box-shadow: 0 20px 50px -10px rgba(183, 28, 28, 0.35);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 10px 30px -5px rgba(183, 28, 28, 0.15);
+  }
+}
+
+.animate-fade-slide-up {
+  animation: fadeSlideUp 0.38s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-fade-slide-right {
+  animation: fadeSlideRight 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-pulse-ring {
+  animation: subtlePulseRing 2.2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+.animate-tv-call {
+  animation: tvCallHighlight 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Custom subtle scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D5CDCC;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #B8AEAD;
+}

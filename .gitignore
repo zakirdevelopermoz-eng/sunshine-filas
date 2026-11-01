@@ -1,0 +1,29 @@
+# Node / Vite / React
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+server-queue-state.json
+*.log
+
+# Android Studio / Gradle
+android-totem-pos/.gradle/
+android-totem-pos/build/
+android-totem-pos/app/build/
+android-totem-pos/local.properties
+android-totem-pos/.idea/
+android-totem-pos/.kotlin/
+
+android-smart-tv/.gradle/
+android-smart-tv/build/
+android-smart-tv/app/build/
+android-smart-tv/local.properties
+android-smart-tv/.idea/
+android-smart-tv/.kotlin/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.vercel/
