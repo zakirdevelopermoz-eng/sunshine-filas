@@ -235,7 +235,7 @@ fun TotemPosKioskApp() {
                             ) {
                                 Text(
                                     text = "Toque na opção desejada para tirar sua senha:",
-                                    fontSize = 26.sp,
+                                    fontSize = 30.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = Color(0xFF1B1919),
                                     textAlign = TextAlign.Center,
@@ -258,7 +258,7 @@ fun TotemPosKioskApp() {
                                                 label = "Marcação de Consulta (Particular)"
                                             )
                                         },
-                                        shape = RoundedCornerShape(18.dp),
+                                        shape = RoundedCornerShape(20.dp),
                                         color = Color(0xFFB71515),
                                         shadowElevation = 5.dp,
                                         modifier = Modifier
@@ -268,25 +268,25 @@ fun TotemPosKioskApp() {
                                         Column(
                                             modifier = Modifier
                                                 .fillMaxSize()
-                                                .padding(horizontal = 20.dp, vertical = 18.dp),
+                                                .padding(horizontal = 24.dp, vertical = 22.dp),
                                             horizontalAlignment = Alignment.CenterHorizontally,
                                             verticalArrangement = Arrangement.SpaceBetween
                                         ) {
                                             Text(
                                                 text = "CONSULTA OU EXAME HOJE (VOU PAGAR\nEM DINHEIRO, CARTÃO OU M-PESA)",
-                                                fontSize = 15.sp,
-                                                lineHeight = 20.sp,
+                                                fontSize = 18.sp,
+                                                lineHeight = 24.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = Color.White,
                                                 textAlign = TextAlign.Center
                                             )
 
-                                            ParticularCoinPlusIllustration(size = 136.dp)
+                                            ParticularCoinPlusIllustration(size = 190.dp)
 
                                             Text(
                                                 text = "PAGAMENTO PARTICULAR\n(Sem Seguro)",
-                                                fontSize = 28.sp,
-                                                lineHeight = 33.sp,
+                                                fontSize = 35.sp,
+                                                lineHeight = 41.sp,
                                                 fontWeight = FontWeight.ExtraBold,
                                                 color = Color.White,
                                                 textAlign = TextAlign.Center
@@ -294,7 +294,7 @@ fun TotemPosKioskApp() {
 
                                             Text(
                                                 text = "Consultas e exames sem convênio.",
-                                                fontSize = 16.sp,
+                                                fontSize = 19.sp,
                                                 fontWeight = FontWeight.Normal,
                                                 color = Color.White.copy(alpha = 0.95f),
                                                 textAlign = TextAlign.Center
@@ -311,7 +311,7 @@ fun TotemPosKioskApp() {
                                                 label = "Marcação / Faturação com Seguro"
                                             )
                                         },
-                                        shape = RoundedCornerShape(18.dp),
+                                        shape = RoundedCornerShape(20.dp),
                                         color = Color(0xFF2D6A30),
                                         shadowElevation = 5.dp,
                                         modifier = Modifier
@@ -321,25 +321,25 @@ fun TotemPosKioskApp() {
                                         Column(
                                             modifier = Modifier
                                                 .fillMaxSize()
-                                                .padding(horizontal = 20.dp, vertical = 18.dp),
+                                                .padding(horizontal = 24.dp, vertical = 22.dp),
                                             horizontalAlignment = Alignment.CenterHorizontally,
                                             verticalArrangement = Arrangement.SpaceBetween
                                         ) {
                                             Text(
                                                 text = "CONSULTA OU EXAME HOJE (TENHO\nCONVÊNIO OU SEGURO)",
-                                                fontSize = 15.sp,
-                                                lineHeight = 20.sp,
+                                                fontSize = 18.sp,
+                                                lineHeight = 24.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = Color.White,
                                                 textAlign = TextAlign.Center
                                             )
 
-                                            SeguroShieldCardIllustration(size = 136.dp)
+                                            SeguroShieldCardIllustration(size = 190.dp)
 
                                             Text(
                                                 text = "TENHO SEGURO DE\nSAÚDE / CONVÊNIO",
-                                                fontSize = 28.sp,
-                                                lineHeight = 33.sp,
+                                                fontSize = 35.sp,
+                                                lineHeight = 41.sp,
                                                 fontWeight = FontWeight.ExtraBold,
                                                 color = Color.White,
                                                 textAlign = TextAlign.Center
@@ -347,7 +347,7 @@ fun TotemPosKioskApp() {
 
                                             Text(
                                                 text = "Atendimento por planos de saúde e parcerias.",
-                                                fontSize = 16.sp,
+                                                fontSize = 19.sp,
                                                 fontWeight = FontWeight.Normal,
                                                 color = Color.White.copy(alpha = 0.95f),
                                                 textAlign = TextAlign.Center
@@ -366,7 +366,7 @@ fun TotemPosKioskApp() {
                                     shadowElevation = 3.dp,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(54.dp)
+                                        .height(60.dp)
                                 ) {
                                     Row(
                                         modifier = Modifier
@@ -402,10 +402,10 @@ fun TotemPosKioskApp() {
                                                     append("TOQUE AQUI PARA REATIVAR SUA SENHA")
                                                 }
                                             },
-                                            fontSize = 18.sp
+                                            fontSize = 21.sp
                                         )
-                                        Spacer(modifier = Modifier.width(10.dp))
-                                        UndoReturnArrowIcon(tint = Color.White, size = 22.dp)
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        UndoReturnArrowIcon(tint = Color.White, size = 25.dp)
                                     }
                                 }
                             }
