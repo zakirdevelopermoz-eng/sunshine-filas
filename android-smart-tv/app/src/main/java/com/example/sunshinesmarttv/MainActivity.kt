@@ -16,7 +16,10 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -244,10 +247,10 @@ fun SmartTvLoungeScreen(
                     .fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // LEFT (62%): Active Call Card + Live Counter Strip
+                // LEFT (56%): Active Call Card + Live Counter Strip
                 Column(
                     modifier = Modifier
-                        .weight(0.62f)
+                        .weight(0.56f)
                         .fillMaxHeight(),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
@@ -433,148 +436,290 @@ fun SmartTvLoungeScreen(
                     }
                 }
 
-                // RIGHT (38%): Recent Calls & Waiting Queue
-                Column(
-                    modifier = Modifier
-                        .weight(0.38f)
-                        .fillMaxHeight(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Recent Calls
-                    Surface(
-                        shape = RoundedCornerShape(24.dp),
-                        color = Color.White,
-                        border = BorderStroke(1.dp, SunshineBorder),
-                        modifier = Modifier
-                            .weight(0.58f)
-                            .fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = "ÚLTIMAS SENHAS CHAMADAS",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = SunshineTextSecondary,
-                                letterSpacing = 0.8.sp
-                            )
+                // RIGHT (44%): Queue Comparison Table (Particulares vs Seguros)
+                val particularWaiting = state.waitingTickets.filter { it.category == "PARTICULAR" }
+                val seguroWaiting = state.waitingTickets.filter { it.category == "SEGURO" }
 
-                            state.recentCalls.forEach { item ->
-                                Surface(
-                                    shape = RoundedCornerShape(14.dp),
-                                    color = SunshineSurface,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.weight(1f).padding(end = 8.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                        ) {
-                                            Text(
-                                                text = item.displayCode,
-                                                fontSize = 18.sp,
-                                                fontFamily = FontFamily.Monospace,
-                                                fontWeight = FontWeight.ExtraBold,
-                                                color = SunshineTextPrimary
-                                            )
-                                            Text(
-                                                text = item.subServiceLabel,
-                                                fontSize = 11.sp,
-                                                color = SunshineTextSecondary,
-                                                maxLines = 1
-                                            )
-                                        }
-                                        Surface(
-                                            color = SunshineTextPrimary,
-                                            shape = RoundedCornerShape(10.dp)
-                                        ) {
-                                            Text(
-                                                text = item.assignedCounterName,
-                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                                                fontSize = 10.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color.White,
-                                                maxLines = 1
-                                            )
-                                        }
-                                    }
-                                }
+                Surface(
+                    shape = RoundedCornerShape(24.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, SunshineBorder),
+                    modifier = Modifier
+                        .weight(0.44f)
+                        .fillMaxHeight()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        // Top Table Header
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "FILA DE ESPERA — PARTICULARES & SEGUROS",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = SunshineTextPrimary,
+                                    letterSpacing = 0.6.sp
+                                )
+                                Text(
+                                    text = "Compare o tamanho de cada fila em tempo real",
+                                    fontSize = 10.sp,
+                                    color = SunshineTextSecondary
+                                )
+                            }
+
+                            Surface(
+                                color = Color(0xFFF3EFEF),
+                                shape = CircleShape
+                            ) {
+                                Text(
+                                    text = "Total: ${particularWaiting.size + seguroWaiting.size} na fila",
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = SunshineTextPrimary
+                                )
                             }
                         }
-                    }
 
-                    // Next in Waiting Queue
-                    Surface(
-                        shape = RoundedCornerShape(24.dp),
-                        color = Color.White,
-                        border = BorderStroke(1.dp, SunshineBorder),
-                        modifier = Modifier
-                            .weight(0.42f)
-                            .fillMaxWidth()
-                    ) {
-                        Column(
+                        // 2-Column Side-by-Side Table: PARTICULAR vs SEGUROS
+                        Row(
                             modifier = Modifier
-                                .fillMaxSize()
-                                .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Text(
-                                text = "PRÓXIMAS NA FILA DE ESPERA",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = SunshineTextSecondary,
-                                letterSpacing = 0.8.sp
+                            // TABLE COLUMN 1: PARTICULAR
+                            QueueCategoryTableColumn(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight(),
+                                title = "PARTICULAR",
+                                tickets = particularWaiting,
+                                headerColor = Color(0xFFB71C1C),
+                                lightTint = Color(0xFFFFF5F5),
+                                borderColor = Color(0xFFF5D0D0)
                             )
 
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                state.waitingTickets.take(4).forEach { w ->
-                                    Surface(
-                                        shape = RoundedCornerShape(14.dp),
-                                        color = if (w.isReturnFromExam) Color(0xFFE8F5E9) else SunshineSurface,
-                                        border = BorderStroke(
-                                            1.dp,
-                                            if (w.isReturnFromExam) SunshineGreen else SunshineBorder
-                                        ),
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Column(
-                                            modifier = Modifier.padding(10.dp),
-                                            horizontalAlignment = Alignment.CenterHorizontally
-                                        ) {
-                                            Text(
-                                                text = w.displayCode,
-                                                fontFamily = FontFamily.Monospace,
-                                                fontWeight = FontWeight.ExtraBold,
-                                                fontSize = 15.sp,
-                                                color = SunshineTextPrimary
-                                            )
-                                            Text(
-                                                text = if (w.isReturnFromExam) "Retorno" else w.category.take(6),
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = if (w.isReturnFromExam) SunshineGreen else SunshineTextSecondary
-                                            )
-                                        }
-                                    }
-                                }
-                            }
+                            // TABLE COLUMN 2: SEGUROS
+                            QueueCategoryTableColumn(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight(),
+                                title = "SEGUROS",
+                                tickets = seguroWaiting,
+                                headerColor = Color(0xFF1B5E20),
+                                lightTint = Color(0xFFF3FAF4),
+                                borderColor = Color(0xFFCDE7D0)
+                            )
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun QueueCategoryTableColumn(
+    modifier: Modifier = Modifier,
+    title: String,
+    tickets: List<TvTicketItem>,
+    headerColor: Color,
+    lightTint: Color,
+    borderColor: Color
+) {
+    val statusText = when {
+        tickets.isEmpty() -> "Sem Espera"
+        tickets.size <= 3 -> "Fila Curta"
+        tickets.size <= 6 -> "Fila Moderada"
+        else -> "Fila Longa"
+    }
+
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = Color.White,
+        border = BorderStroke(1.5.dp, borderColor),
+        modifier = modifier
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Table Column Colored Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(headerColor)
+                    .padding(horizontal = 12.dp, vertical = 9.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color.White,
+                    letterSpacing = 0.6.sp
+                )
+                Surface(
+                    color = Color.White,
+                    shape = CircleShape
+                ) {
+                    Text(
+                        text = "${tickets.size} na fila",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = headerColor
+                    )
+                }
+            }
+
+            // Table Sub-header (# | SENHA | ESTADO)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(lightTint)
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "POS.",
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = SunshineTextSecondary
+                )
+                Text(
+                    text = "SENHA",
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = SunshineTextSecondary
+                )
+                Text(
+                    text = "ESTADO",
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = SunshineTextSecondary
+                )
+            }
+
+            Divider(color = borderColor, thickness = 1.dp)
+
+            // Table Rows
+            if (tickets.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "0 na fila",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = headerColor
+                        )
+                        Text(
+                            text = "Atendimento imediato",
+                            fontSize = 10.sp,
+                            color = SunshineTextSecondary
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                ) {
+                    itemsIndexed(tickets) { index, item ->
+                        val rowBg = if (index % 2 == 0) Color.White else lightTint.copy(alpha = 0.55f)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(rowBg)
+                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                color = lightTint,
+                                shape = RoundedCornerShape(6.dp),
+                                border = BorderStroke(1.dp, borderColor)
+                            ) {
+                                Text(
+                                    text = "${index + 1}º",
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = headerColor
+                                )
+                            }
+
+                            Text(
+                                text = item.displayCode,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = SunshineTextPrimary
+                            )
+
+                            if (item.isReturnFromExam) {
+                                Surface(
+                                    color = Color(0xFFE8F5E9),
+                                    shape = RoundedCornerShape(6.dp)
+                                ) {
+                                    Text(
+                                        text = "RETORNO",
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Color(0xFF1B5E20)
+                                    )
+                                }
+                            } else {
+                                Text(
+                                    text = "Aguarda",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = SunshineTextSecondary
+                                )
+                            }
+                        }
+                        Divider(color = borderColor.copy(alpha = 0.5f), thickness = 0.5.dp)
+                    }
+                }
+            }
+
+            // Bottom Evaluation Footer (Fila Curta / Moderada / Longa)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(lightTint)
+                    .padding(horizontal = 10.dp, vertical = 7.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Avaliação:",
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = SunshineTextSecondary
+                )
+                Text(
+                    text = statusText,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = headerColor
+                )
             }
         }
     }

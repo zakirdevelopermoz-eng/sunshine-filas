@@ -159,7 +159,6 @@ object TvApiService {
                 compareByDescending<TvTicketItem> { it.isReturnFromExam }
                     .thenBy { it.queuedAt }
             )
-            .take(6)
 
         return TvDashboardState(
             counters = counters,
