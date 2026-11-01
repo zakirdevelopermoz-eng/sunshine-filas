@@ -141,32 +141,37 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         // ignore
       }
 
-      // Push to local API bridge so Android Studio Emulators (10.0.2.2:5173) get immediate updates
-      try {
-        const res = await fetch('/api/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            counters: nextCounters,
-            cycles: nextCycles,
-            tickets: nextTickets,
-          }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.updatedAt) {
-            lastServerTimestampRef.current = data.updatedAt;
+      // Push to local API bridge only during local development
+      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+        try {
+          const res = await fetch('/api/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              counters: nextCounters,
+              cycles: nextCycles,
+              tickets: nextTickets,
+            }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.updatedAt) {
+              lastServerTimestampRef.current = data.updatedAt;
+            }
           }
+        } catch {
+          // ignore offline
         }
-      } catch {
-        // ignore offline
       }
     },
     []
   );
 
-  // Poll /api/state every 1.2s so tickets created in the Kotlin Android Emulator (Totem POS) appear live in the Web PWA
+  // Poll /api/state only on localhost when Supabase is not connected
   useEffect(() => {
+    if (isSupabaseConnected) return;
+    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') return;
+
     let active = true;
 
     const fetchServerState = async () => {
@@ -186,12 +191,12 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     fetchServerState();
-    const timer = setInterval(fetchServerState, 1200);
+    const timer = setInterval(fetchServerState, 2000);
     return () => {
       active = false;
       clearInterval(timer);
     };
-  }, []);
+  }, [isSupabaseConnected]);
 
   // Multi-tab BroadcastChannel
   useEffect(() => {
