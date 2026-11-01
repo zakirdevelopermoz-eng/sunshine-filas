@@ -1,0 +1,25 @@
+{
+  "name": "Sunshine Hospitals — Terminal de Recepção",
+  "short_name": "Sunshine Recepção",
+  "description": "Terminal de Gestão de Filas e Chamada de Senhas por Balcão — Sunshine Hospitals",
+  "start_url": "./recepcao",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#FCF8F8",
+  "theme_color": "#B71C1C",
+  "orientation": "landscape-primary",
+  "icons": [
+    {
+      "src": "sunshine-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "sunshine-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

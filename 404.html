@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="pt">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/sunshine-filas/sunshine-logo.png" />
+    <link rel="manifest" href="/sunshine-filas/manifest.webmanifest" />
+    <meta name="theme-color" content="#B71C1C" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sunshine Hospitals — Terminal de Recepção & CRM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script type="module" crossorigin src="/sunshine-filas/assets/index-ChaDg5_x.js"></script>
+    <link rel="stylesheet" crossorigin href="/sunshine-filas/assets/index-C4efjBax.css">
+  </head>
+  <body class="bg-[#F9F8F8] text-[#1A1C1E] antialiased selection:bg-[#FFDAD6] selection:text-[#93000A]">
+    <div id="root"></div>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          const swPath = window.location.pathname.startsWith('/sunshine-filas')
+            ? '/sunshine-filas/sw.js'
+            : '/sw.js';
+          navigator.serviceWorker.register(swPath).catch(() => {});
+        });
+      }
+    </script>
+  </body>
+</html>
