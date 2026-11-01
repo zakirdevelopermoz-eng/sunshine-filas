@@ -1,6 +1,6 @@
-const CACHE_NAME = 'sunshine-pwa-v1';
+const CACHE_NAME = 'sunshine-pwa-v2';
 
-self.addEventListener('install', (event) => {
+self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
@@ -9,10 +9,12 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET' || event.request.url.includes('/api/')) {
+  // Never intercept cross-origin requests (e.g. Supabase REST/Realtime) or API calls
+  if (
+    event.request.method !== 'GET' ||
+    !event.request.url.startsWith(self.location.origin) ||
+    event.request.url.includes('/api/')
+  ) {
     return;
   }
-  event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request))
-  );
 });

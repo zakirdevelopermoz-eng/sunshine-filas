@@ -217,13 +217,18 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, []);
 
-  // Supabase Realtime sync
+  // Supabase Realtime sync (stable reference — no state dependencies to prevent infinite re-fetch loops)
+  const isSyncingRef = useRef<boolean>(false);
+
   const syncWithSupabase = useCallback(async () => {
     const supabase = getSupabaseClient();
     if (!supabase) {
       setIsSupabaseConnected(false);
       return false;
     }
+
+    if (isSyncingRef.current) return true;
+    isSyncingRef.current = true;
 
     try {
       const [countersRes, cyclesRes, ticketsRes] = await Promise.all([
@@ -240,71 +245,85 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setIsSupabaseConnected(true);
       setSupabaseUrl(getSupabaseCredentials().url);
 
-      const mappedCounters: CounterConfig[] =
-        countersRes.data && countersRes.data.length > 0
-          ? countersRes.data.map((row) => ({
-              id: row.id,
-              code: row.code,
-              name: row.name,
-              subtitle: row.subtitle,
-              serviceUnitId: row.service_unit_id,
-              primaryQueues: row.primary_queues as QueueCategory[],
-              secondaryQueues: row.secondary_queues as QueueCategory[],
-              supportModeActive: row.support_mode_active,
-              isActive: row.is_active,
-              displayOrder: row.display_order,
-            }))
-          : counters;
+      if (countersRes.data && countersRes.data.length > 0) {
+        const mappedCounters: CounterConfig[] = countersRes.data.map((row) => ({
+          id: row.id,
+          code: row.code,
+          name: row.name,
+          subtitle: row.subtitle,
+          serviceUnitId: row.service_unit_id,
+          primaryQueues: row.primary_queues as QueueCategory[],
+          secondaryQueues: row.secondary_queues as QueueCategory[],
+          supportModeActive: row.support_mode_active,
+          isActive: row.is_active,
+          displayOrder: row.display_order,
+        }));
+        setCounters(mappedCounters);
+        try {
+          localStorage.setItem(STORAGE_KEYS.COUNTERS, JSON.stringify(mappedCounters));
+        } catch {
+          // ignore
+        }
+      }
 
-      const mappedCycles: QueueCycle[] =
-        cyclesRes.data && cyclesRes.data.length > 0
-          ? cyclesRes.data.map((row) => ({
-              id: row.id,
-              serviceUnitId: row.service_unit_id,
-              cycleLabel: row.cycle_label,
-              isCurrent: row.is_current,
-              startedAt: row.started_at,
-              closedAt: row.closed_at,
-              resetBy: row.reset_by,
-            }))
-          : cycles;
+      if (cyclesRes.data && cyclesRes.data.length > 0) {
+        const mappedCycles: QueueCycle[] = cyclesRes.data.map((row) => ({
+          id: row.id,
+          serviceUnitId: row.service_unit_id,
+          cycleLabel: row.cycle_label,
+          isCurrent: row.is_current,
+          startedAt: row.started_at,
+          closedAt: row.closed_at,
+          resetBy: row.reset_by,
+        }));
+        setCycles(mappedCycles);
+        try {
+          localStorage.setItem(STORAGE_KEYS.CYCLES, JSON.stringify(mappedCycles));
+        } catch {
+          // ignore
+        }
+      }
 
-      const mappedTickets: Ticket[] = ticketsRes.data
-        ? ticketsRes.data.map((row) => ({
-            id: row.id,
-            cycleId: row.cycle_id,
-            serviceUnitId: row.service_unit_id,
-            category: row.category as QueueCategory,
-            subService: row.sub_service as SubServiceType,
-            subServiceLabel: row.sub_service_label,
-            sequenceNumber: row.sequence_number,
-            displayCode: row.display_code,
-            status: row.status as TicketStatus,
-            isReturnFromExam: row.is_return_from_exam,
-            reuseCount: row.reuse_count,
-            assignedCounterId: row.assigned_counter_id,
-            assignedCounterName: row.assigned_counter_name,
-            callCount: row.call_count,
-            createdAt: row.created_at,
-            queuedAt: row.queued_at,
-            calledAt: row.called_at,
-            serviceStartedAt: row.service_started_at,
-            examStartedAt: row.exam_started_at,
-            returnedFromExamAt: row.returned_from_exam_at,
-            completedAt: row.completed_at,
-          }))
-        : tickets;
+      if (ticketsRes.data) {
+        const mappedTickets: Ticket[] = ticketsRes.data.map((row) => ({
+          id: row.id,
+          cycleId: row.cycle_id,
+          serviceUnitId: row.service_unit_id,
+          category: row.category as QueueCategory,
+          subService: row.sub_service as SubServiceType,
+          subServiceLabel: row.sub_service_label,
+          sequenceNumber: row.sequence_number,
+          displayCode: row.display_code,
+          status: row.status as TicketStatus,
+          isReturnFromExam: row.is_return_from_exam,
+          reuseCount: row.reuse_count,
+          assignedCounterId: row.assigned_counter_id,
+          assignedCounterName: row.assigned_counter_name,
+          callCount: row.call_count,
+          createdAt: row.created_at,
+          queuedAt: row.queued_at,
+          calledAt: row.called_at,
+          serviceStartedAt: row.service_started_at,
+          examStartedAt: row.exam_started_at,
+          returnedFromExamAt: row.returned_from_exam_at,
+          completedAt: row.completed_at,
+        }));
+        setTickets(mappedTickets);
+        try {
+          localStorage.setItem(STORAGE_KEYS.TICKETS, JSON.stringify(mappedTickets));
+        } catch {
+          // ignore
+        }
+      }
 
-      setCounters(mappedCounters);
-      setCycles(mappedCycles);
-      setTickets(mappedTickets);
-      persistAndBroadcast(mappedCounters, mappedCycles, mappedTickets);
       return true;
     } catch {
       setIsSupabaseConnected(false);
       return false;
+    } finally {
+      isSyncingRef.current = false;
     }
-  }, [counters, cycles, tickets, persistAndBroadcast]);
+  }, []);
 
   useEffect(() => {
     syncWithSupabase();
@@ -324,7 +343,13 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       })
       .subscribe();
 
+    // Gentle 3-second polling backup in case WebSocket drops
+    const pollInterval = setInterval(() => {
+      syncWithSupabase();
+    }, 3000);
+
     return () => {
+      clearInterval(pollInterval);
       supabase.removeChannel(channel);
     };
   }, [syncWithSupabase]);
