@@ -128,6 +128,9 @@ object TvApiService {
                     val currentTickets = mutableListOf<TvTicketItem>()
                     for (i in 0 until ticketsArr.length()) {
                         val obj = ticketsArr.getJSONObject(i)
+                        val rawCalledAt = if (obj.isNull("called_at")) "" else obj.optString("called_at", "")
+                        val rawCounterId = if (obj.isNull("assigned_counter_id")) "" else obj.optString("assigned_counter_id", "")
+                        val rawCounterName = if (obj.isNull("assigned_counter_name")) "Balcão" else obj.optString("assigned_counter_name", "Balcão")
                         currentTickets.add(
                             TvTicketItem(
                                 id = obj.optString("id"),
@@ -136,11 +139,11 @@ object TvApiService {
                                 subServiceLabel = obj.optString("sub_service_label", "Atendimento"),
                                 status = obj.optString("status", "WAITING"),
                                 isReturnFromExam = obj.optBoolean("is_return_from_exam", false),
-                                assignedCounterId = obj.optString("assigned_counter_id", ""),
-                                assignedCounterName = obj.optString("assigned_counter_name", "Balcão"),
+                                assignedCounterId = rawCounterId,
+                                assignedCounterName = rawCounterName,
                                 callCount = obj.optInt("call_count", 0),
-                                calledAt = obj.optString("called_at", ""),
-                                queuedAt = obj.optString("queued_at", "")
+                                calledAt = if (rawCalledAt == "null") "" else rawCalledAt,
+                                queuedAt = if (obj.isNull("queued_at")) "" else obj.optString("queued_at", "")
                             )
                         )
                     }
@@ -164,9 +167,9 @@ object TvApiService {
         counters: List<TvCounterItem>,
         currentTickets: List<TvTicketItem>
     ): TvDashboardState {
-        // Find the most recently called ticket across all counters
+        // Find the most recently called ticket across all counters (ignoring WAITING tickets with empty calledAt)
         val allCalledSorted = currentTickets
-            .filter { it.calledAt.isNotEmpty() }
+            .filter { it.status != "WAITING" && it.calledAt.isNotEmpty() && it.calledAt != "null" }
             .sortedByDescending { it.calledAt }
 
         val mostRecentCalledTicket = allCalledSorted.firstOrNull()

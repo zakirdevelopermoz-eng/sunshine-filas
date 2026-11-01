@@ -195,12 +195,15 @@ fun SmartTvLoungeScreen(
             val next = TvApiService.fetchDashboardState()
             state = next
             if (next.connected) {
+                val active = next.activeCall
                 if (!isInitialized) {
-                    // Record initial latest call timestamp so historical calls are never re-announced as ghosts
                     highestCalledAt = next.latestCalledAt
                     isInitialized = true
+                    if (active != null && active.status == "CALLED") {
+                        highlightActive = true
+                        onAnnounceTicket(active)
+                    }
                 } else {
-                    val active = next.activeCall
                     if (
                         active != null &&
                         active.status == "CALLED" &&
