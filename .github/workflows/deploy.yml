@@ -42,6 +42,13 @@ jobs:
         run: |
           npm run build
           cp dist/index.html dist/404.html
+          mkdir -p dist/recepcao dist/admin dist/recepcao/A dist/recepcao/B dist/recepcao/C dist/recepcao/D
+          cp dist/index.html dist/recepcao/index.html
+          cp dist/index.html dist/admin/index.html
+          cp dist/index.html dist/recepcao/A/index.html
+          cp dist/index.html dist/recepcao/B/index.html
+          cp dist/index.html dist/recepcao/C/index.html
+          cp dist/index.html dist/recepcao/D/index.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

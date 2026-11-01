@@ -2,8 +2,8 @@
 <html lang="pt">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="./sunshine-logo.png" />
-    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" type="image/png" href="/sunshine-logo.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#B71C1C" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sunshine Hospitals — Terminal de Recepção & CRM</title>
@@ -17,7 +17,10 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js').catch(() => {});
+          const swPath = window.location.pathname.startsWith('/sunshine-filas')
+            ? '/sunshine-filas/sw.js'
+            : '/sw.js';
+          navigator.serviceWorker.register(swPath).catch(() => {});
         });
       }
     </script>
