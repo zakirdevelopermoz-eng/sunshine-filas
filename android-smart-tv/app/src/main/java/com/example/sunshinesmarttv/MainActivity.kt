@@ -175,7 +175,8 @@ fun SmartTvLoungeScreen(
             )
         )
     }
-    var lastCallSignature by remember { mutableStateOf("") }
+    var highestCalledAt by remember { mutableStateOf("") }
+    var isInitialized by remember { mutableStateOf(false) }
     var highlightActive by remember { mutableStateOf(false) }
     var currentTimeText by remember { mutableStateOf("") }
 
@@ -188,18 +189,30 @@ fun SmartTvLoungeScreen(
         }
     }
 
-    // Real-time Polling from Server (10.0.2.2:5173/api/state)
+    // Real-time Polling from Supabase
     LaunchedEffect(Unit) {
         while (true) {
             val next = TvApiService.fetchDashboardState()
             state = next
-            val active = next.activeCall
-            if (active != null) {
-                val sig = "${active.id}-${active.callCount}-${active.calledAt}"
-                if (lastCallSignature != sig) {
-                    lastCallSignature = sig
-                    highlightActive = true
-                    onAnnounceTicket(active)
+            if (next.connected) {
+                if (!isInitialized) {
+                    // Record initial latest call timestamp so historical calls are never re-announced as ghosts
+                    highestCalledAt = next.latestCalledAt
+                    isInitialized = true
+                } else {
+                    val active = next.activeCall
+                    if (
+                        active != null &&
+                        active.status == "CALLED" &&
+                        active.calledAt.isNotEmpty() &&
+                        active.calledAt > highestCalledAt
+                    ) {
+                        highestCalledAt = active.calledAt
+                        highlightActive = true
+                        onAnnounceTicket(active)
+                    } else if (next.latestCalledAt > highestCalledAt) {
+                        highestCalledAt = next.latestCalledAt
+                    }
                 }
             }
             if (highlightActive) {

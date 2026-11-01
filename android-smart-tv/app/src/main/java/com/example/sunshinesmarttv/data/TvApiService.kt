@@ -39,6 +39,7 @@ data class TvDashboardState(
     val activeCall: TvTicketItem?,
     val recentCalls: List<TvTicketItem>,
     val waitingTickets: List<TvTicketItem>,
+    val latestCalledAt: String = "",
     val connected: Boolean
 )
 
@@ -163,14 +164,29 @@ object TvApiService {
         counters: List<TvCounterItem>,
         currentTickets: List<TvTicketItem>
     ): TvDashboardState {
-        val calledOrServing = currentTickets
-            .filter { (it.status == "CALLED" || it.status == "IN_SERVICE") && it.calledAt.isNotEmpty() }
+        // Find the most recently called ticket across all counters
+        val allCalledSorted = currentTickets
+            .filter { it.calledAt.isNotEmpty() }
             .sortedByDescending { it.calledAt }
 
-        val recentCalls = currentTickets
-            .filter { it.calledAt.isNotEmpty() && it.status != "WAITING" }
+        val mostRecentCalledTicket = allCalledSorted.firstOrNull()
+        val latestCalledAt = mostRecentCalledTicket?.calledAt ?: ""
+
+        // Only display activeCall if the most recently called ticket is STILL actively CALLED or IN_SERVICE.
+        // Never fall back to an older stale ticket from another counter after a patient finishes service.
+        val activeCall = if (
+            mostRecentCalledTicket != null &&
+            (mostRecentCalledTicket.status == "CALLED" || mostRecentCalledTicket.status == "IN_SERVICE")
+        ) {
+            mostRecentCalledTicket
+        } else {
+            null
+        }
+
+        // For the bottom counter status strip (Balcão A, B, C, D), only show tickets currently CALLED or IN_SERVICE
+        val currentlyServingByCounter = currentTickets
+            .filter { (it.status == "CALLED" || it.status == "IN_SERVICE") && it.calledAt.isNotEmpty() }
             .sortedByDescending { it.calledAt }
-            .take(4)
 
         val waiting = currentTickets
             .filter { it.status == "WAITING" }
@@ -181,9 +197,10 @@ object TvApiService {
 
         return TvDashboardState(
             counters = counters,
-            activeCall = calledOrServing.firstOrNull(),
-            recentCalls = recentCalls,
+            activeCall = activeCall,
+            recentCalls = currentlyServingByCounter,
             waitingTickets = waiting,
+            latestCalledAt = latestCalledAt,
             connected = true
         )
     }
