@@ -1,20 +1,22 @@
-const CACHE_NAME = 'sunshine-pwa-v2';
-
+// Self-unregistering Service Worker to purge any previously cached sw.js
 self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+      .then(() => self.registration.unregister())
+      .then(() => self.clients.matchAll())
+      .then((clients) => {
+        clients.forEach((client) => {
+          if ('navigate' in client) {
+            client.navigate(client.url);
+          }
+        });
+      })
+  );
 });
 
-self.addEventListener('fetch', (event) => {
-  // Never intercept cross-origin requests (e.g. Supabase REST/Realtime) or API calls
-  if (
-    event.request.method !== 'GET' ||
-    !event.request.url.startsWith(self.location.origin) ||
-    event.request.url.includes('/api/')
-  ) {
-    return;
-  }
-});
