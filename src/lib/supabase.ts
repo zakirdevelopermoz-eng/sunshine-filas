@@ -52,6 +52,11 @@ export function getSupabaseClient(): SupabaseClient | null {
   }
   try {
     cachedClient = createClient(url, anonKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
       realtime: {
         params: {
           eventsPerSecond: 20,

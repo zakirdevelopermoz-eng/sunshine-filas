@@ -219,6 +219,10 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Supabase Realtime sync (stable reference — no state dependencies to prevent infinite re-fetch loops)
   const isSyncingRef = useRef<boolean>(false);
+  const lastCountersJsonRef = useRef<string>('');
+  const lastCyclesJsonRef = useRef<string>('');
+  const lastTicketsJsonRef = useRef<string>('');
+  const consecutiveErrorsRef = useRef<number>(0);
 
   const syncWithSupabase = useCallback(async () => {
     const supabase = getSupabaseClient();
@@ -238,10 +242,12 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ]);
 
       if (countersRes.error || cyclesRes.error || ticketsRes.error) {
+        consecutiveErrorsRef.current += 1;
         setIsSupabaseConnected(false);
         return false;
       }
 
+      consecutiveErrorsRef.current = 0;
       setIsSupabaseConnected(true);
       setSupabaseUrl(getSupabaseCredentials().url);
 
@@ -258,11 +264,15 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           isActive: row.is_active,
           displayOrder: row.display_order,
         }));
-        setCounters(mappedCounters);
-        try {
-          localStorage.setItem(STORAGE_KEYS.COUNTERS, JSON.stringify(mappedCounters));
-        } catch {
-          // ignore
+        const nextJson = JSON.stringify(mappedCounters);
+        if (nextJson !== lastCountersJsonRef.current) {
+          lastCountersJsonRef.current = nextJson;
+          setCounters(mappedCounters);
+          try {
+            localStorage.setItem(STORAGE_KEYS.COUNTERS, nextJson);
+          } catch {
+            // ignore
+          }
         }
       }
 
@@ -276,11 +286,15 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           closedAt: row.closed_at,
           resetBy: row.reset_by,
         }));
-        setCycles(mappedCycles);
-        try {
-          localStorage.setItem(STORAGE_KEYS.CYCLES, JSON.stringify(mappedCycles));
-        } catch {
-          // ignore
+        const nextJson = JSON.stringify(mappedCycles);
+        if (nextJson !== lastCyclesJsonRef.current) {
+          lastCyclesJsonRef.current = nextJson;
+          setCycles(mappedCycles);
+          try {
+            localStorage.setItem(STORAGE_KEYS.CYCLES, nextJson);
+          } catch {
+            // ignore
+          }
         }
       }
 
@@ -308,16 +322,21 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           returnedFromExamAt: row.returned_from_exam_at,
           completedAt: row.completed_at,
         }));
-        setTickets(mappedTickets);
-        try {
-          localStorage.setItem(STORAGE_KEYS.TICKETS, JSON.stringify(mappedTickets));
-        } catch {
-          // ignore
+        const nextJson = JSON.stringify(mappedTickets);
+        if (nextJson !== lastTicketsJsonRef.current) {
+          lastTicketsJsonRef.current = nextJson;
+          setTickets(mappedTickets);
+          try {
+            localStorage.setItem(STORAGE_KEYS.TICKETS, nextJson);
+          } catch {
+            // ignore
+          }
         }
       }
 
       return true;
     } catch {
+      consecutiveErrorsRef.current += 1;
       setIsSupabaseConnected(false);
       return false;
     } finally {
@@ -343,10 +362,16 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       })
       .subscribe();
 
-    // Gentle 3-second polling backup in case WebSocket drops
+    // Gentle 6-second polling backup when tab is visible and not in error backoff
     const pollInterval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      if (consecutiveErrorsRef.current >= 3) {
+        // Backoff: only retry every ~18s when network is failing
+        consecutiveErrorsRef.current = 1;
+        return;
+      }
       syncWithSupabase();
-    }, 3000);
+    }, 6000);
 
     return () => {
       clearInterval(pollInterval);
