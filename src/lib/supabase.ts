@@ -3,14 +3,20 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 const STORAGE_URL_KEY = 'sunshine_supabase_url';
 const STORAGE_ANON_KEY = 'sunshine_supabase_anon_key';
 
+const DEFAULT_SUPABASE_URL = 'https://xpysyyfogouxapchvkwb.supabase.co';
+const DEFAULT_SUPABASE_KEY = 'sb_publishable_RJFeXPv9PuWg3YMgcajwaQ_bkDmfQ63';
+
 export interface SupabaseCredentials {
   url: string;
   anonKey: string;
 }
 
 export function getSupabaseCredentials(): SupabaseCredentials {
-  const envUrl = import.meta.env.VITE_SUPABASE_URL || '';
-  const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+  const envUrl = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+  const envKey =
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    import.meta.env.VITE_SUPABASE_ANON_KEY ||
+    DEFAULT_SUPABASE_KEY;
   const localUrl = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_URL_KEY) || '' : '';
   const localKey = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_ANON_KEY) || '' : '';
 

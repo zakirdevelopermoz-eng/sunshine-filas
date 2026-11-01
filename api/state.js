@@ -1,9 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 
+const DEFAULT_URL = 'https://xpysyyfogouxapchvkwb.supabase.co';
+const DEFAULT_KEY = 'sb_publishable_RJFeXPv9PuWg3YMgcajwaQ_bkDmfQ63';
+
 function getSupabase() {
-  const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-  const key = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
-  if (!url || !key) return null;
+  const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || DEFAULT_URL;
+  const key =
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.VITE_SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    DEFAULT_KEY;
   return createClient(url, key);
 }
 
@@ -17,11 +23,6 @@ export default async function handler(req, res) {
   }
 
   const supabase = getSupabase();
-  if (!supabase) {
-    return res.status(503).json({
-      error: 'Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY nas Environment Variables da Vercel.',
-    });
-  }
 
   const [countersRes, cyclesRes, ticketsRes] = await Promise.all([
     supabase.from('counters').select('*').order('display_order', { ascending: true }),

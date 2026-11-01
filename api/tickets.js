@@ -1,9 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 
+const DEFAULT_URL = 'https://xpysyyfogouxapchvkwb.supabase.co';
+const DEFAULT_KEY = 'sb_publishable_RJFeXPv9PuWg3YMgcajwaQ_bkDmfQ63';
+
 function getSupabase() {
-  const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-  const key = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
-  if (!url || !key) return null;
+  const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || DEFAULT_URL;
+  const key =
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.VITE_SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    DEFAULT_KEY;
   return createClient(url, key);
 }
 
@@ -21,16 +27,9 @@ export default async function handler(req, res) {
   }
 
   const supabase = getSupabase();
-  if (!supabase) {
-    return res.status(503).json({
-      error: 'Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY nas Environment Variables da Vercel.',
-    });
-  }
-
   const { category = 'PARTICULAR', subService = 'CONSULTA_PARTICULAR', subServiceLabel = 'Atendimento' } =
     req.body || {};
 
-  // Get active cycle
   const { data: cycles } = await supabase
     .from('queue_cycles')
     .select('*')
@@ -39,10 +38,11 @@ export default async function handler(req, res) {
 
   const currentCycleId = cycles?.[0]?.id;
   if (!currentCycleId) {
-    return res.status(500).json({ error: 'Nenhum ciclo ativo encontrado no Supabase.' });
+    return res.status(500).json({
+      error: 'Execute o ficheiro supabase/schema.sql no SQL Editor do Supabase para criar as tabelas.',
+    });
   }
 
-  // Get max sequence in active cycle for category
   const { data: existing } = await supabase
     .from('tickets')
     .select('sequence_number')
