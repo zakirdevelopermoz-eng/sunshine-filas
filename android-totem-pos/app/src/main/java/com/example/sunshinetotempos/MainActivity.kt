@@ -1,5 +1,7 @@
 package com.example.sunshinetotempos
 
+import android.graphics.Paint
+import android.graphics.Typeface
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.Bundle
@@ -16,8 +18,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -36,13 +36,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -52,15 +56,10 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.example.sunshinetotempos.data.PosApiService
 import com.example.sunshinetotempos.data.TicketItem
 import com.example.sunshinetotempos.theme.*
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 enum class TotemScreenStep {
     HOME,
-    CONSULTA_MODE,
     OUTROS_MODE,
     REUSE_TICKET,
     TICKET_PRINTED
@@ -70,7 +69,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        // Immersive Kiosk Mode for Tablet POS
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController.systemBarsBehavior =
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -103,18 +101,6 @@ fun TotemPosKioskApp() {
     var reuseInput by remember { mutableStateOf("S-001") }
     var reuseError by remember { mutableStateOf<String?>(null) }
     var examHoldTickets by remember { mutableStateOf<List<TicketItem>>(emptyList()) }
-
-    var showServerDialog by remember { mutableStateOf(false) }
-    var serverUrlInput by remember { mutableStateOf(PosApiService.baseUrl) }
-    var clockText by remember { mutableStateOf("") }
-
-    LaunchedEffect(Unit) {
-        val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
-        while (true) {
-            clockText = sdf.format(Date())
-            delay(10000)
-        }
-    }
 
     LaunchedEffect(step) {
         if (step == TotemScreenStep.HOME || step == TotemScreenStep.REUSE_TICKET) {
@@ -167,417 +153,297 @@ fun TotemPosKioskApp() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(Color(0xFFFCF9F9), Color(0xFFF2ECEB))
-                )
-            )
-            .padding(horizontal = 24.dp, vertical = 16.dp)
+            .background(Color(0xFFFAF6F6))
+            .padding(horizontal = 26.dp, vertical = 14.dp)
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // 1. Sleek Hospital Kiosk Header
+            // 1. Minimalist White Top Header Bar matching reference image
             Surface(
-                shape = RoundedCornerShape(22.dp),
+                shape = RoundedCornerShape(16.dp),
                 color = Color.White,
                 shadowElevation = 2.dp,
-                border = BorderStroke(1.dp, Color(0xFFE6DFDE)),
-                modifier = Modifier.fillMaxWidth()
+                border = BorderStroke(1.dp, Color(0xFFEAE3E3)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(58.dp)
             ) {
                 Row(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 22.dp, vertical = 12.dp),
+                        .fillMaxSize()
+                        .padding(horizontal = 20.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.sunshine_logo),
-                            contentDescription = "Sunshine Hospitals",
-                            modifier = Modifier
-                                .height(36.dp)
-                                .widthIn(max = 165.dp),
-                            contentScale = ContentScale.Fit
-                        )
-                        Box(
-                            modifier = Modifier
-                                .height(26.dp)
-                                .width(1.dp)
-                                .background(Color(0xFFE5DFDE))
-                        )
-                        Column {
-                            Text(
-                                text = "TERMINAL DE AUTO-ATENDIMENTO & SENHAS",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = SunshineRed,
-                                letterSpacing = 1.1.sp
-                            )
-                            Text(
-                                text = "Recepção Central · Toque na opção desejada",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = SunshineTextSecondary
-                            )
-                        }
-                    }
+                    Image(
+                        painter = painterResource(id = R.drawable.sunshine_logo),
+                        contentDescription = "Sunshine Hospitals",
+                        modifier = Modifier
+                            .height(34.dp)
+                            .widthIn(max = 190.dp),
+                        contentScale = ContentScale.Fit
+                    )
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    // Dark Return / Secondary Menu Button at Top-Right
+                    Surface(
+                        onClick = {
+                            reuseError = null
+                            step = if (step == TotemScreenStep.HOME) {
+                                TotemScreenStep.OUTROS_MODE
+                            } else {
+                                TotemScreenStep.HOME
+                            }
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFF1F1D1D),
+                        modifier = Modifier
+                            .width(48.dp)
+                            .height(34.dp)
                     ) {
-                        if (step != TotemScreenStep.HOME) {
-                            Button(
-                                onClick = {
-                                    step = TotemScreenStep.HOME
-                                    reuseError = null
-                                },
-                                shape = CircleShape,
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF1C1B1B),
-                                    contentColor = Color.White
-                                ),
-                                contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp)
-                            ) {
-                                Text(
-                                    text = "Voltar ao Início",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        } else {
-                            Surface(
-                                onClick = { showServerDialog = true },
-                                shape = CircleShape,
-                                color = Color(0xFFF6F2F2),
-                                border = BorderStroke(1.dp, Color(0xFFE5DFDE))
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(7.dp)
-                                            .clip(CircleShape)
-                                            .background(SunshineGreen)
-                                    )
-                                    Text(
-                                        text = "POS Online",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = SunshineTextPrimary
-                                    )
-                                }
-                            }
-                        }
-
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = Color(0xFF1C1B1B)
-                        ) {
-                            Text(
-                                text = clockText,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
+                        Box(contentAlignment = Alignment.Center) {
+                            UndoReturnArrowIcon(tint = Color.White, size = 20.dp)
                         }
                     }
                 }
             }
 
-            // 2. Center Main Content (Zero-scroll Bento Layout that fits 100% of Tablet Landscape)
+            // 2. Main Body Area
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(vertical = 12.dp)
             ) {
                 AnimatedContent(
                     targetState = step,
                     transitionSpec = {
-                        (fadeIn(animationSpec = tween(300)) + scaleIn(initialScale = 0.98f, animationSpec = tween(300)))
-                            .togetherWith(fadeOut(animationSpec = tween(200)))
+                        (fadeIn(animationSpec = tween(260)) + scaleIn(initialScale = 0.98f, animationSpec = tween(260)))
+                            .togetherWith(fadeOut(animationSpec = tween(180)))
                     },
                     label = "KioskMainStep"
                 ) { currentStep ->
                     when (currentStep) {
-                        // STEP 1: HOME SCREEN (2 Side-by-Side Hero Cards + Bottom Exam Return Bar)
+                        // MAIN SCREEN: Exact match to user reference image
                         TotemScreenStep.HOME -> {
                             Column(
-                                modifier = Modifier.fillMaxSize(),
-                                verticalArrangement = Arrangement.spacedBy(14.dp)
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(top = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.SpaceBetween
                             ) {
-                                // Top 2 Primary Action Cards Side-by-Side
+                                Text(
+                                    text = "Toque na opção desejada para tirar sua senha:",
+                                    fontSize = 26.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFF1B1919),
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+
+                                // Two Giant High-Contrast Cards Side-by-Side
                                 Row(
                                     modifier = Modifier
                                         .weight(1f)
                                         .fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(20.dp)
                                 ) {
-                                    // LEFT CARD: Marcar Consulta (Seguro ou Particular)
-                                    KioskPrimaryCard(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxHeight(),
-                                        badgeText = "BALCÕES A, B, C",
-                                        categoryTag = "ATENDIMENTO MÉDICO & FATURAÇÃO",
-                                        title = "Marcar Consulta\n(Seguro ou Particular)",
-                                        description = "Abertura de ficha, elegibilidade de seguradoras, guias médicas e atendimento particular.",
-                                        ctaText = "Selecionar Seguro ou Particular",
-                                        accentColor = SunshineRed,
-                                        containerTint = Color(0xFFFFDAD6),
-                                        iconType = "MEDICAL",
-                                        onClick = { step = TotemScreenStep.CONSULTA_MODE }
-                                    )
-
-                                    // RIGHT CARD: Cotação, Agendamento & Outros
-                                    KioskPrimaryCard(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxHeight(),
-                                        badgeText = "BALCÃO D",
-                                        categoryTag = "ORÇAMENTOS & MARCAÇÕES FUTURAS",
-                                        title = "Cotação Simples,\nAgendamento & Outros",
-                                        description = "Orçamentos rápidos de exames/consultas, marcações para datas futuras e informações gerais.",
-                                        ctaText = "Escolher Serviço Geral",
-                                        accentColor = SunshineGreen,
-                                        containerTint = Color(0xFFC8E6C9),
-                                        iconType = "CALENDAR",
-                                        onClick = { step = TotemScreenStep.OUTROS_MODE }
-                                    )
-                                }
-
-                                // Bottom Docked Bar: Reutilizar Senha (Retorno de Exames)
-                                Surface(
-                                    onClick = { step = TotemScreenStep.REUSE_TICKET },
-                                    shape = RoundedCornerShape(24.dp),
-                                    color = Color.White,
-                                    shadowElevation = 2.dp,
-                                    border = BorderStroke(1.5.dp, SunshineGreen.copy(alpha = 0.45f)),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .background(
-                                                Brush.horizontalGradient(
-                                                    colors = listOf(
-                                                        Color(0xFFE8F5E9),
-                                                        Color(0xFFFFFFFF)
-                                                    )
-                                                )
-                                            )
-                                            .padding(horizontal = 22.dp, vertical = 14.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                            modifier = Modifier.weight(1f)
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(46.dp)
-                                                    .clip(RoundedCornerShape(14.dp))
-                                                    .background(SunshineGreen),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                KioskVectorIcon(type = "RETURN", tint = Color.White, size = 22.dp)
-                                            }
-
-                                            Column {
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                                ) {
-                                                    Text(
-                                                        text = "Já foi atendido e regressou de Exames? Reutilizar Senha",
-                                                        fontSize = 16.sp,
-                                                        fontWeight = FontWeight.ExtraBold,
-                                                        color = SunshineTextPrimary
-                                                    )
-                                                    Surface(
-                                                        color = SunshineGreen,
-                                                        shape = CircleShape
-                                                    ) {
-                                                        Text(
-                                                            text = "PRIORIDADE DE RETORNO",
-                                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
-                                                            fontSize = 9.sp,
-                                                            fontWeight = FontWeight.ExtraBold,
-                                                            color = Color.White
-                                                        )
-                                                    }
-                                                }
-                                                Text(
-                                                    text = "Volte à fila da recepção com o código do seu talão sem ter de ficar para trás.",
-                                                    fontSize = 12.sp,
-                                                    color = SunshineTextSecondary
-                                                )
-                                            }
-                                        }
-
-                                        Surface(
-                                            shape = RoundedCornerShape(16.dp),
-                                            color = SunshineGreen
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(horizontal = 18.dp, vertical = 11.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                            ) {
-                                                Text(
-                                                    text = "Reativar Senha",
-                                                    fontSize = 13.sp,
-                                                    fontWeight = FontWeight.ExtraBold,
-                                                    color = Color.White
-                                                )
-                                                KioskVectorIcon(type = "ARROW_RIGHT", tint = Color.White, size = 16.dp)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // STEP 2A: MARCAR CONSULTA (PARTICULAR VS SEGURO SIDE-BY-SIDE)
-                        TotemScreenStep.CONSULTA_MODE -> {
-                            Column(
-                                modifier = Modifier.fillMaxSize(),
-                                verticalArrangement = Arrangement.spacedBy(14.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column {
-                                        Text(
-                                            text = "PASSO 2 DE 2 — MODALIDADE DE ATENDIMENTO",
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            color = SunshineRed,
-                                            letterSpacing = 1.sp
-                                        )
-                                        Text(
-                                            text = "Qual é a modalidade da sua consulta?",
-                                            fontSize = 22.sp,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            color = SunshineTextPrimary
-                                        )
-                                    }
-                                    Text(
-                                        text = "Toque num cartão para imprimir a senha imediatamente",
-                                        fontSize = 12.sp,
-                                        color = SunshineTextSecondary
-                                    )
-                                }
-
-                                Row(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(18.dp)
-                                ) {
-                                    // Particular Card
-                                    KioskPrimaryCard(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxHeight(),
-                                        badgeText = "SÉRIE P · BALCÃO A",
-                                        categoryTag = "ATENDIMENTO PARTICULAR",
-                                        title = "Paciente Particular\n(Sem Seguro)",
-                                        description = "Atendimento prioritário no Balcão A para consultas particulares, exames e pagamentos diretos.",
-                                        ctaText = "Imprimir Senha Particular",
-                                        accentColor = SunshineRed,
-                                        containerTint = Color(0xFFFFDAD6),
-                                        iconType = "MEDICAL",
+                                    // LEFT CARD: PAGAMENTO PARTICULAR (Sem Seguro)
+                                    Surface(
                                         onClick = {
                                             issueNewTicket(
                                                 category = "PARTICULAR",
                                                 subService = "CONSULTA_PARTICULAR",
                                                 label = "Marcação de Consulta (Particular)"
                                             )
-                                        }
-                                    )
-
-                                    // Seguro Card
-                                    KioskPrimaryCard(
+                                        },
+                                        shape = RoundedCornerShape(18.dp),
+                                        color = Color(0xFFB71515),
+                                        shadowElevation = 5.dp,
                                         modifier = Modifier
                                             .weight(1f)
-                                            .fillMaxHeight(),
-                                        badgeText = "SÉRIE S · BALCÕES B e C",
-                                        categoryTag = "SEGURADORAS & CONVÉNIOS",
-                                        title = "Paciente com Seguro\nde Saúde",
-                                        description = "Atendimento nos Balcões B e C (com apoio do Balcão A) para validação e faturação de seguros.",
-                                        ctaText = "Imprimir Senha Seguro",
-                                        accentColor = SunshineGreen,
-                                        containerTint = Color(0xFFC8E6C9),
-                                        iconType = "SHIELD",
+                                            .fillMaxHeight()
+                                    ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .padding(horizontal = 20.dp, vertical = 18.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                text = "CONSULTA OU EXAME HOJE (VOU PAGAR\nEM DINHEIRO, CARTÃO OU M-PESA)",
+                                                fontSize = 15.sp,
+                                                lineHeight = 20.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.White,
+                                                textAlign = TextAlign.Center
+                                            )
+
+                                            ParticularCoinPlusIllustration(size = 136.dp)
+
+                                            Text(
+                                                text = "PAGAMENTO PARTICULAR\n(Sem Seguro)",
+                                                fontSize = 28.sp,
+                                                lineHeight = 33.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                color = Color.White,
+                                                textAlign = TextAlign.Center
+                                            )
+
+                                            Text(
+                                                text = "Consultas e exames sem convênio.",
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.Normal,
+                                                color = Color.White.copy(alpha = 0.95f),
+                                                textAlign = TextAlign.Center
+                                            )
+                                        }
+                                    }
+
+                                    // RIGHT CARD: TENHO SEGURO DE SAÚDE / CONVÊNIO
+                                    Surface(
                                         onClick = {
                                             issueNewTicket(
                                                 category = "SEGURO",
                                                 subService = "CONSULTA_SEGURO",
                                                 label = "Marcação / Faturação com Seguro"
                                             )
+                                        },
+                                        shape = RoundedCornerShape(18.dp),
+                                        color = Color(0xFF2D6A30),
+                                        shadowElevation = 5.dp,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxHeight()
+                                    ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .padding(horizontal = 20.dp, vertical = 18.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                text = "CONSULTA OU EXAME HOJE (TENHO\nCONVÊNIO OU SEGURO)",
+                                                fontSize = 15.sp,
+                                                lineHeight = 20.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.White,
+                                                textAlign = TextAlign.Center
+                                            )
+
+                                            SeguroShieldCardIllustration(size = 136.dp)
+
+                                            Text(
+                                                text = "TENHO SEGURO DE\nSAÚDE / CONVÊNIO",
+                                                fontSize = 28.sp,
+                                                lineHeight = 33.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                color = Color.White,
+                                                textAlign = TextAlign.Center
+                                            )
+
+                                            Text(
+                                                text = "Atendimento por planos de saúde e parcerias.",
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.Normal,
+                                                color = Color.White.copy(alpha = 0.95f),
+                                                textAlign = TextAlign.Center
+                                            )
                                         }
-                                    )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                // Bottom Full-Width Banner: Reativar Senha Pós-Exame
+                                Surface(
+                                    onClick = { step = TotemScreenStep.REUSE_TICKET },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Color.Transparent,
+                                    shadowElevation = 3.dp,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(54.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(
+                                                Brush.horizontalGradient(
+                                                    colors = listOf(
+                                                        Color(0xFF15534C),
+                                                        Color(0xFF0F385A)
+                                                    )
+                                                )
+                                            )
+                                            .padding(horizontal = 20.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            text = buildAnnotatedString {
+                                                withStyle(
+                                                    SpanStyle(
+                                                        fontWeight = FontWeight.Normal,
+                                                        color = Color.White
+                                                    )
+                                                ) {
+                                                    append("Já foi atendido hoje e voltou de exames? ")
+                                                }
+                                                withStyle(
+                                                    SpanStyle(
+                                                        fontWeight = FontWeight.ExtraBold,
+                                                        color = Color.White
+                                                    )
+                                                ) {
+                                                    append("TOQUE AQUI PARA REATIVAR SUA SENHA")
+                                                }
+                                            },
+                                            fontSize = 18.sp
+                                        )
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        UndoReturnArrowIcon(tint = Color.White, size = 22.dp)
+                                    }
                                 }
                             }
                         }
 
-                        // STEP 2B: OUTROS SERVIÇOS (3 SIDE-BY-SIDE CARDS FOR BALCÃO D)
+                        // SECONDARY SCREEN: OUTROS SERVIÇOS (Cotação, Agendamento, Outros) with Giant Buttons & Large Text
                         TotemScreenStep.OUTROS_MODE -> {
                             Column(
-                                modifier = Modifier.fillMaxSize(),
-                                verticalArrangement = Arrangement.spacedBy(14.dp)
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(top = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Column {
-                                    Text(
-                                        text = "PASSO 2 DE 2 — OUTROS SERVIÇOS DE RECEPÇÃO (BALCÃO D)",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = SunshineGreen,
-                                        letterSpacing = 1.sp
-                                    )
-                                    Text(
-                                        text = "Selecione o serviço que pretende realizar",
-                                        fontSize = 22.sp,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = SunshineTextPrimary
-                                    )
-                                }
+                                Text(
+                                    text = "Outros Serviços e Orçamentos — Toque na opção desejada:",
+                                    fontSize = 25.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFF1B1919),
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
 
                                 Row(
                                     modifier = Modifier
                                         .weight(1f)
                                         .fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
-                                    KioskPrimaryCard(
+                                    GiantSolidServiceCard(
                                         modifier = Modifier
                                             .weight(1f)
                                             .fillMaxHeight(),
-                                        badgeText = "SÉRIE G · BALCÃO D",
-                                        categoryTag = "ORÇAMENTO RÁPIDO",
-                                        title = "Cotação\nSimples",
-                                        description = "Consulta rápida de preços e orçamentos para exames, análises clínicas ou procedimentos médicos.",
-                                        ctaText = "Imprimir Senha Cotação",
-                                        accentColor = Color(0xFF1E293B),
-                                        containerTint = Color(0xFFE2E8F0),
-                                        iconType = "RECEIPT",
+                                        topTag = "ORÇAMENTO DE EXAMES OU CONSULTAS",
+                                        title = "COTAÇÃO\nSIMPLES",
+                                        subtitle = "Consulta rápida de preços no Balcão D.",
+                                        backgroundColor = Color(0xFF1E3A5F),
+                                        badgeCircleColor = Color(0xFFD0E2F5),
                                         onClick = {
                                             issueNewTicket(
                                                 category = "OUTROS",
@@ -587,18 +453,15 @@ fun TotemPosKioskApp() {
                                         }
                                     )
 
-                                    KioskPrimaryCard(
+                                    GiantSolidServiceCard(
                                         modifier = Modifier
                                             .weight(1f)
                                             .fillMaxHeight(),
-                                        badgeText = "SÉRIE G · BALCÃO D",
-                                        categoryTag = "MARCAÇÃO PROGRAMADA",
-                                        title = "Agendamento\nde Consulta",
-                                        description = "Programação de consultas de especialidade ou exames complementares para datas futuras.",
-                                        ctaText = "Imprimir Senha Agendamento",
-                                        accentColor = SunshineGreen,
-                                        containerTint = Color(0xFFC8E6C9),
-                                        iconType = "CALENDAR",
+                                        topTag = "MARCAÇÃO PARA DATAS FUTURAS",
+                                        title = "AGENDAMENTO\nDE CONSULTA",
+                                        subtitle = "Programar consultas e exames futuros.",
+                                        backgroundColor = Color(0xFF2D6A30),
+                                        badgeCircleColor = Color(0xFFCFECCF),
                                         onClick = {
                                             issueNewTicket(
                                                 category = "OUTROS",
@@ -608,18 +471,15 @@ fun TotemPosKioskApp() {
                                         }
                                     )
 
-                                    KioskPrimaryCard(
+                                    GiantSolidServiceCard(
                                         modifier = Modifier
                                             .weight(1f)
                                             .fillMaxHeight(),
-                                        badgeText = "SÉRIE G · BALCÃO D",
-                                        categoryTag = "APOIO GERAL",
-                                        title = "Outros Serviços\n& Informações",
-                                        description = "Levantamento de relatórios médicos, segunda via de documentos ou esclarecimento de dúvidas.",
-                                        ctaText = "Imprimir Senha Geral",
-                                        accentColor = SunshineRed,
-                                        containerTint = Color(0xFFFFDAD6),
-                                        iconType = "MEDICAL",
+                                        topTag = "LEVANTAMENTO DE EXAMES E APOIO",
+                                        title = "OUTROS\nSERVIÇOS",
+                                        subtitle = "Relatórios médicos e informações gerais.",
+                                        backgroundColor = Color(0xFFB71515),
+                                        badgeCircleColor = Color(0xFFFAD2D2),
                                         onClick = {
                                             issueNewTicket(
                                                 category = "OUTROS",
@@ -629,22 +489,50 @@ fun TotemPosKioskApp() {
                                         }
                                     )
                                 }
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                Surface(
+                                    onClick = { step = TotemScreenStep.HOME },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Color(0xFF1F1D1D),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(54.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxSize(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            text = "VOLTAR PARA CONSULTAS PARTICULAR OU SEGURO",
+                                            fontSize = 18.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = Color.White
+                                        )
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        UndoReturnArrowIcon(tint = Color.White, size = 22.dp)
+                                    }
+                                }
                             }
                         }
 
-                        // STEP 2C: REUSE TICKET AFTER EXAMS (2-COLUMN SPLIT WITH BUILT-IN TOUCH KEYPAD)
+                        // REUSE TICKET AFTER EXAMS (Large Typography & Giant Tactile Keypad)
                         TotemScreenStep.REUSE_TICKET -> {
                             Row(
-                                modifier = Modifier.fillMaxSize(),
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(top = 10.dp),
                                 horizontalArrangement = Arrangement.spacedBy(18.dp)
                             ) {
-                                // Left Column: Instructions + Quick Select Chips
+                                // Left Column: Big Instructions + Large Quick-Select Ticket Buttons
                                 Surface(
-                                    shape = RoundedCornerShape(26.dp),
-                                    color = Color.White,
-                                    border = BorderStroke(1.dp, SunshineBorder),
+                                    shape = RoundedCornerShape(18.dp),
+                                    color = Color(0xFF15534C),
+                                    shadowElevation = 4.dp,
                                     modifier = Modifier
-                                        .weight(0.48f)
+                                        .weight(0.46f)
                                         .fillMaxHeight()
                                 ) {
                                     Column(
@@ -653,80 +541,56 @@ fun TotemPosKioskApp() {
                                             .padding(22.dp),
                                         verticalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                            Surface(
-                                                color = SunshineGreenContainer,
-                                                shape = CircleShape
-                                            ) {
-                                                Text(
-                                                    text = "PRIORIDADE PÓS-EXAME",
-                                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                                                    fontSize = 10.sp,
-                                                    fontWeight = FontWeight.ExtraBold,
-                                                    color = SunshineGreen
-                                                )
-                                            }
-
+                                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                             Text(
-                                                text = "Reutilizar a sua Senha na Fila",
-                                                fontSize = 22.sp,
+                                                text = "RETORNO DE EXAMES",
+                                                fontSize = 15.sp,
                                                 fontWeight = FontWeight.ExtraBold,
-                                                color = SunshineTextPrimary
+                                                color = Color(0xFFA7F3D0),
+                                                letterSpacing = 1.sp
                                             )
 
                                             Text(
-                                                text = "Se já passou pela recepção, realizou os seus exames e precisa regressar ao balcão, indique o número da sua senha para voltar à fila sem perder a sua vez.",
-                                                fontSize = 12.sp,
-                                                lineHeight = 18.sp,
-                                                color = SunshineTextSecondary
+                                                text = "Reativar a sua Senha com Prioridade",
+                                                fontSize = 28.sp,
+                                                lineHeight = 33.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                color = Color.White
+                                            )
+
+                                            Text(
+                                                text = "Toque na sua senha abaixo ou digite o número no teclado ao lado para voltar à fila sem perder a vez.",
+                                                fontSize = 16.sp,
+                                                lineHeight = 22.sp,
+                                                color = Color.White.copy(alpha = 0.92f)
                                             )
 
                                             Spacer(modifier = Modifier.height(4.dp))
 
-                                            Text(
-                                                text = "SENHAS EM EXAME / AGUARDANDO RETORNO:",
-                                                fontSize = 10.sp,
-                                                fontWeight = FontWeight.ExtraBold,
-                                                color = SunshineTextSecondary,
-                                                letterSpacing = 0.8.sp
-                                            )
-
-                                            if (examHoldTickets.isEmpty()) {
+                                            if (examHoldTickets.isNotEmpty()) {
                                                 Text(
-                                                    text = "Use o teclado ao lado para digitar a sua senha.",
-                                                    fontSize = 12.sp,
-                                                    color = SunshineTextSecondary
+                                                    text = "TOQUE NA SUA SENHA:",
+                                                    fontSize = 14.sp,
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    color = Color(0xFFA7F3D0)
                                                 )
-                                            } else {
                                                 LazyRow(
-                                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                                                 ) {
                                                     items(examHoldTickets) { item ->
                                                         Surface(
                                                             onClick = { submitReuseTicket(item.displayCode) },
                                                             shape = RoundedCornerShape(14.dp),
-                                                            color = Color(0xFFE8F5E9),
-                                                            border = BorderStroke(1.5.dp, SunshineGreen)
+                                                            color = Color.White
                                                         ) {
-                                                            Row(
-                                                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                                                                verticalAlignment = Alignment.CenterVertically,
-                                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                                            ) {
-                                                                Text(
-                                                                    text = item.displayCode,
-                                                                    fontFamily = FontFamily.Monospace,
-                                                                    fontWeight = FontWeight.ExtraBold,
-                                                                    fontSize = 15.sp,
-                                                                    color = SunshineGreen
-                                                                )
-                                                                Text(
-                                                                    text = "Reativar",
-                                                                    fontSize = 11.sp,
-                                                                    fontWeight = FontWeight.Bold,
-                                                                    color = SunshineTextPrimary
-                                                                )
-                                                            }
+                                                            Text(
+                                                                text = item.displayCode,
+                                                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                                                                fontFamily = FontFamily.Monospace,
+                                                                fontWeight = FontWeight.ExtraBold,
+                                                                fontSize = 22.sp,
+                                                                color = Color(0xFF15534C)
+                                                            )
                                                         }
                                                     }
                                                 }
@@ -735,29 +599,51 @@ fun TotemPosKioskApp() {
 
                                         reuseError?.let { err ->
                                             Surface(
-                                                color = SunshineRedContainer,
-                                                shape = RoundedCornerShape(14.dp),
+                                                color = Color(0xFFB71515),
+                                                shape = RoundedCornerShape(12.dp),
                                                 modifier = Modifier.fillMaxWidth()
                                             ) {
                                                 Text(
                                                     text = err,
-                                                    modifier = Modifier.padding(12.dp),
-                                                    fontSize = 12.sp,
+                                                    modifier = Modifier.padding(14.dp),
+                                                    fontSize = 15.sp,
                                                     fontWeight = FontWeight.Bold,
-                                                    color = SunshineRedDark
+                                                    color = Color.White
                                                 )
                                             }
+                                        }
+
+                                        Button(
+                                            onClick = {
+                                                reuseError = null
+                                                step = TotemScreenStep.HOME
+                                            },
+                                            shape = RoundedCornerShape(14.dp),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = Color.White,
+                                                contentColor = Color(0xFF15534C)
+                                            ),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(52.dp)
+                                        ) {
+                                            Text(
+                                                text = "VOLTAR AO ECRÃ INICIAL",
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.ExtraBold
+                                            )
                                         }
                                     }
                                 }
 
-                                // Right Column: Built-in Tactile Keypad (No ugly system keyboard popup!)
+                                // Right Column: Large Touch Keypad
                                 Surface(
-                                    shape = RoundedCornerShape(26.dp),
+                                    shape = RoundedCornerShape(18.dp),
                                     color = Color.White,
-                                    border = BorderStroke(1.dp, SunshineBorder),
+                                    shadowElevation = 4.dp,
+                                    border = BorderStroke(1.dp, Color(0xFFE5DFDE)),
                                     modifier = Modifier
-                                        .weight(0.52f)
+                                        .weight(0.54f)
                                         .fillMaxHeight()
                                 ) {
                                     Column(
@@ -766,54 +652,49 @@ fun TotemPosKioskApp() {
                                             .padding(18.dp),
                                         verticalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        // Code Display Box + Series Prefixes
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Surface(
-                                                shape = RoundedCornerShape(16.dp),
-                                                color = Color(0xFFFCF9F9),
-                                                border = BorderStroke(2.dp, SunshineGreen),
+                                                shape = RoundedCornerShape(14.dp),
+                                                color = Color(0xFFFAF6F6),
+                                                border = BorderStroke(2.5.dp, Color(0xFF2D6A30)),
                                                 modifier = Modifier.weight(1f)
                                             ) {
                                                 Text(
                                                     text = if (reuseInput.isEmpty()) "S-001" else reuseInput,
-                                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                                                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
                                                     fontFamily = FontFamily.Monospace,
-                                                    fontSize = 24.sp,
+                                                    fontSize = 28.sp,
                                                     fontWeight = FontWeight.ExtraBold,
-                                                    color = if (reuseInput.isEmpty()) Color(0xFFB8AEAD) else SunshineTextPrimary
+                                                    color = if (reuseInput.isEmpty()) Color(0xFFB8AEAD) else Color(0xFF1B1919)
                                                 )
                                             }
 
                                             listOf("P-", "S-", "G-").forEach { pref ->
+                                                val selected = reuseInput.startsWith(pref)
                                                 Surface(
                                                     onClick = {
                                                         reuseError = null
                                                         reuseInput = pref
                                                     },
                                                     shape = RoundedCornerShape(14.dp),
-                                                    color = if (reuseInput.startsWith(pref)) SunshineRedContainer else Color(0xFFF3EDED),
-                                                    border = BorderStroke(
-                                                        1.dp,
-                                                        if (reuseInput.startsWith(pref)) SunshineRed else SunshineBorder
-                                                    )
+                                                    color = if (selected) Color(0xFFB71515) else Color(0xFFEDE7E7)
                                                 ) {
                                                     Text(
                                                         text = pref,
-                                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
                                                         fontFamily = FontFamily.Monospace,
                                                         fontWeight = FontWeight.ExtraBold,
-                                                        fontSize = 15.sp,
-                                                        color = if (reuseInput.startsWith(pref)) SunshineRedDark else SunshineTextPrimary
+                                                        fontSize = 20.sp,
+                                                        color = if (selected) Color.White else Color(0xFF1B1919)
                                                     )
                                                 }
                                             }
                                         }
 
-                                        // 4x3 Touch Keypad Grid
                                         val rows = listOf(
                                             listOf("1", "2", "3", "4"),
                                             listOf("5", "6", "7", "8"),
@@ -821,7 +702,9 @@ fun TotemPosKioskApp() {
                                         )
                                         Column(
                                             verticalArrangement = Arrangement.spacedBy(8.dp),
-                                            modifier = Modifier.weight(1f).padding(vertical = 8.dp)
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .padding(vertical = 8.dp)
                                         ) {
                                             rows.forEach { r ->
                                                 Row(
@@ -845,8 +728,8 @@ fun TotemPosKioskApp() {
                                                                 }
                                                             },
                                                             shape = RoundedCornerShape(14.dp),
-                                                            color = Color(0xFFF7F4F4),
-                                                            border = BorderStroke(1.dp, Color(0xFFE5DFDE)),
+                                                            color = Color(0xFFF3EFEF),
+                                                            border = BorderStroke(1.dp, Color(0xFFDDD6D5)),
                                                             modifier = Modifier
                                                                 .weight(1f)
                                                                 .fillMaxHeight()
@@ -855,9 +738,9 @@ fun TotemPosKioskApp() {
                                                                 Text(
                                                                     text = key,
                                                                     fontFamily = FontFamily.Monospace,
-                                                                    fontSize = if (key.length > 1) 11.sp else 18.sp,
+                                                                    fontSize = if (key.length > 1) 15.sp else 24.sp,
                                                                     fontWeight = FontWeight.ExtraBold,
-                                                                    color = SunshineTextPrimary
+                                                                    color = Color(0xFF1B1919)
                                                                 )
                                                             }
                                                         }
@@ -869,16 +752,17 @@ fun TotemPosKioskApp() {
                                         Button(
                                             onClick = { submitReuseTicket(reuseInput) },
                                             enabled = !isBusy,
-                                            shape = RoundedCornerShape(18.dp),
-                                            colors = ButtonDefaults.buttonColors(containerColor = SunshineGreen),
+                                            shape = RoundedCornerShape(14.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2D6A30)),
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .height(50.dp)
+                                                .height(56.dp)
                                         ) {
                                             Text(
-                                                text = "Confirmar e Voltar à Fila com Prioridade",
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.ExtraBold
+                                                text = "CONFIRMAR E REATIVAR MINHA SENHA",
+                                                fontSize = 18.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                color = Color.White
                                             )
                                         }
                                     }
@@ -886,98 +770,96 @@ fun TotemPosKioskApp() {
                             }
                         }
 
-                        // STEP 3: PRINTED THERMAL RECEIPT (2-COLUMN SPLIT: INSTRUCTIONS + 80MM RECEIPT)
+                        // PRINTED TICKET SCREEN (Large Text & 80mm Receipt)
                         TotemScreenStep.TICKET_PRINTED -> {
                             val ticket = printedTicket
                             if (ticket != null) {
                                 Row(
-                                    modifier = Modifier.fillMaxSize(),
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(top = 10.dp),
                                     horizontalArrangement = Arrangement.spacedBy(20.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    // Left Column: Confirmation & Next Steps
                                     Surface(
-                                        shape = RoundedCornerShape(28.dp),
-                                        color = Color.White,
-                                        border = BorderStroke(1.dp, SunshineBorder),
+                                        shape = RoundedCornerShape(18.dp),
+                                        color = Color(0xFF2D6A30),
+                                        shadowElevation = 4.dp,
                                         modifier = Modifier
-                                            .weight(0.55f)
+                                            .weight(0.54f)
                                             .fillMaxHeight()
                                     ) {
                                         Column(
                                             modifier = Modifier
                                                 .fillMaxSize()
-                                                .padding(28.dp),
+                                                .padding(26.dp),
                                             verticalArrangement = Arrangement.SpaceBetween
                                         ) {
-                                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                                Surface(
-                                                    color = SunshineGreenContainer,
-                                                    shape = CircleShape
-                                                ) {
-                                                    Text(
-                                                        text = if (isReusedConfirmation) {
-                                                            "SENHA REATIVADA COM PRIORIDADE PÓS-EXAME"
-                                                        } else {
-                                                            "TALÃO EMITIDO COM SUCESSO"
-                                                        },
-                                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                                                        fontSize = 11.sp,
-                                                        fontWeight = FontWeight.ExtraBold,
-                                                        color = SunshineGreen
-                                                    )
-                                                }
-
+                                            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                                                 Text(
                                                     text = if (isReusedConfirmation) {
-                                                        "A sua senha voltou à fila de atendimento"
+                                                        "SENHA REATIVADA COM PRIORIDADE"
                                                     } else {
-                                                        "Retire o seu talão impresso abaixo"
+                                                        "SENHA EMITIDA COM SUCESSO"
                                                     },
-                                                    fontSize = 26.sp,
+                                                    fontSize = 16.sp,
                                                     fontWeight = FontWeight.ExtraBold,
-                                                    color = SunshineTextPrimary
+                                                    color = Color(0xFFCFECCF)
                                                 )
 
                                                 Text(
-                                                    text = "Aguarde confortavelmente na sala de espera. O seu número será chamado com anúncio de voz no ecrã da Smart TV.",
-                                                    fontSize = 13.sp,
-                                                    lineHeight = 19.sp,
-                                                    color = SunshineTextSecondary
+                                                    text = if (isReusedConfirmation) {
+                                                        "A sua senha voltou à fila de atendimento!"
+                                                    } else {
+                                                        "Retire a sua senha impressa abaixo"
+                                                    },
+                                                    fontSize = 32.sp,
+                                                    lineHeight = 38.sp,
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    color = Color.White
+                                                )
+
+                                                Text(
+                                                    text = "Aguarde na sala de espera. O seu número será chamado na Smart TV com aviso de voz.",
+                                                    fontSize = 18.sp,
+                                                    lineHeight = 25.sp,
+                                                    color = Color.White.copy(alpha = 0.95f)
                                                 )
                                             }
 
                                             Button(
                                                 onClick = { step = TotemScreenStep.HOME },
-                                                shape = RoundedCornerShape(20.dp),
-                                                colors = ButtonDefaults.buttonColors(containerColor = SunshineRed),
+                                                shape = RoundedCornerShape(14.dp),
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = Color.White,
+                                                    contentColor = Color(0xFF1B1919)
+                                                ),
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .height(56.dp)
+                                                    .height(58.dp)
                                             ) {
                                                 Text(
-                                                    text = "Concluir e Novo Paciente",
-                                                    fontSize = 15.sp,
+                                                    text = "CONCLUIR E VOLTAR AO INÍCIO",
+                                                    fontSize = 18.sp,
                                                     fontWeight = FontWeight.ExtraBold
                                                 )
                                             }
                                         }
                                     }
 
-                                    // Right Column: Realistic 80mm POS Thermal Paper Receipt
                                     Surface(
-                                        shape = RoundedCornerShape(24.dp),
+                                        shape = RoundedCornerShape(18.dp),
                                         color = Color.White,
                                         shadowElevation = 6.dp,
                                         border = BorderStroke(1.5.dp, Color(0xFFDCD4D3)),
                                         modifier = Modifier
-                                            .weight(0.45f)
+                                            .weight(0.46f)
                                             .fillMaxHeight()
                                     ) {
                                         Column(
                                             modifier = Modifier
                                                 .fillMaxSize()
-                                                .padding(22.dp),
+                                                .padding(24.dp),
                                             horizontalAlignment = Alignment.CenterHorizontally,
                                             verticalArrangement = Arrangement.SpaceBetween
                                         ) {
@@ -985,16 +867,15 @@ fun TotemPosKioskApp() {
                                                 Image(
                                                     painter = painterResource(id = R.drawable.sunshine_logo),
                                                     contentDescription = "Sunshine Hospitals",
-                                                    modifier = Modifier.height(30.dp),
+                                                    modifier = Modifier.height(34.dp),
                                                     contentScale = ContentScale.Fit
                                                 )
-                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Spacer(modifier = Modifier.height(6.dp))
                                                 Text(
-                                                    text = "RECEPÇÃO CENTRAL — TALÃO POS 80MM",
-                                                    fontSize = 9.sp,
+                                                    text = "TALÃO DE ATENDIMENTO POS 80MM",
+                                                    fontSize = 13.sp,
                                                     fontWeight = FontWeight.Bold,
-                                                    color = SunshineTextSecondary,
-                                                    letterSpacing = 1.sp
+                                                    color = SunshineTextSecondary
                                                 )
                                             }
 
@@ -1003,29 +884,29 @@ fun TotemPosKioskApp() {
                                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                                 Text(
                                                     text = ticket.subServiceLabel,
-                                                    fontSize = 12.sp,
+                                                    fontSize = 17.sp,
                                                     fontWeight = FontWeight.Bold,
-                                                    color = SunshineTextSecondary,
+                                                    color = SunshineTextPrimary,
                                                     textAlign = TextAlign.Center
                                                 )
                                                 Text(
                                                     text = ticket.displayCode,
                                                     fontFamily = FontFamily.Monospace,
-                                                    fontSize = 54.sp,
+                                                    fontSize = 62.sp,
                                                     fontWeight = FontWeight.ExtraBold,
-                                                    color = SunshineTextPrimary
+                                                    color = Color(0xFFB71515)
                                                 )
                                                 if (ticket.isReturnFromExam) {
                                                     Surface(
-                                                        color = Color(0xFFE8F5E9),
+                                                        color = Color(0xFFCFECCF),
                                                         shape = RoundedCornerShape(8.dp)
                                                     ) {
                                                         Text(
-                                                            text = "PRIORIDADE: RETORNO DE EXAME",
-                                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                                            fontSize = 10.sp,
+                                                            text = "PRIORIDADE PÓS-EXAME",
+                                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                                            fontSize = 14.sp,
                                                             fontWeight = FontWeight.ExtraBold,
-                                                            color = SunshineGreen
+                                                            color = Color(0xFF2D6A30)
                                                         )
                                                     }
                                                 }
@@ -1034,8 +915,9 @@ fun TotemPosKioskApp() {
                                             DashedReceiptDivider()
 
                                             Text(
-                                                text = "Conserve este talão para reutilização após exames.",
-                                                fontSize = 10.sp,
+                                                text = "Guarde este talão caso precise voltar após exames.",
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Medium,
                                                 color = SunshineTextSecondary,
                                                 textAlign = TextAlign.Center
                                             )
@@ -1049,153 +931,317 @@ fun TotemPosKioskApp() {
             }
         }
     }
+}
 
-    if (showServerDialog) {
-        AlertDialog(
-            onDismissRequest = { showServerDialog = false },
-            title = { Text("Configurar Servidor API", fontWeight = FontWeight.Bold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        "No emulador Android, 10.0.2.2:5173 liga diretamente ao servidor local do seu PC.",
-                        fontSize = 12.sp
-                    )
-                    OutlinedTextField(
-                        value = serverUrlInput,
-                        onValueChange = { serverUrlInput = it },
-                        singleLine = true,
-                        label = { Text("URL Base da API") }
-                    )
-                }
-            },
-            confirmButton = {
-                Button(onClick = {
-                    PosApiService.baseUrl = serverUrlInput.trim()
-                    showServerDialog = false
-                }) {
-                    Text("Guardar")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showServerDialog = false }) {
-                    Text("Cancelar")
-                }
+/**
+ * Custom Vector Illustration for Left Red Card:
+ * Large light-pink circle with Dollar Coin ($) and overlapping Medical Cross (+) circle at bottom-right.
+ */
+@Composable
+private fun ParticularCoinPlusIllustration(size: Dp) {
+    val redColor = Color(0xFFB71515)
+    val pinkFill = Color(0xFFFAD2D2)
+
+    Canvas(modifier = Modifier.size(size)) {
+        val w = this.size.width
+        val h = this.size.height
+
+        // 1. Main large light-pink circle
+        val mainRadius = w * 0.44f
+        val mainCenter = Offset(w * 0.46f, h * 0.47f)
+        drawCircle(
+            color = pinkFill,
+            radius = mainRadius,
+            center = mainCenter
+        )
+
+        // 2. Inner dark-red coin ring inside main circle
+        drawCircle(
+            color = redColor,
+            radius = mainRadius * 0.72f,
+            center = mainCenter,
+            style = Stroke(width = 5.5.dp.toPx())
+        )
+
+        // 3. Bold "$" symbol centered in coin ring
+        drawContext.canvas.nativeCanvas.apply {
+            val paint = Paint().apply {
+                isAntiAlias = true
+                color = android.graphics.Color.rgb(183, 21, 21)
+                textSize = w * 0.42f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                textAlign = Paint.Align.CENTER
             }
+            val fontMetrics = paint.fontMetrics
+            val textY = mainCenter.y - (fontMetrics.ascent + fontMetrics.descent) / 2f
+            drawText("$", mainCenter.x, textY, paint)
+        }
+
+        // 4. Overlapping bottom-right badge circle with '+'
+        val subRadius = w * 0.23f
+        val subCenter = Offset(w * 0.75f, h * 0.71f)
+
+        // Outer red separator border
+        drawCircle(
+            color = redColor,
+            radius = subRadius + 4.dp.toPx(),
+            center = subCenter
+        )
+        // Light pink fill
+        drawCircle(
+            color = pinkFill,
+            radius = subRadius,
+            center = subCenter
+        )
+        // Plus sign '+'
+        val arm = subRadius * 0.52f
+        val plusStroke = 5.5.dp.toPx()
+        drawLine(
+            color = redColor,
+            start = Offset(subCenter.x - arm, subCenter.y),
+            end = Offset(subCenter.x + arm, subCenter.y),
+            strokeWidth = plusStroke,
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = redColor,
+            start = Offset(subCenter.x, subCenter.y - arm),
+            end = Offset(subCenter.x, subCenter.y + arm),
+            strokeWidth = plusStroke,
+            cap = StrokeCap.Round
+        )
+    }
+}
+
+/**
+ * Custom Vector Illustration for Right Green Card:
+ * Large light-mint circle with Medical Shield (+) and overlapping Insurance/Health Card at bottom-right.
+ */
+@Composable
+private fun SeguroShieldCardIllustration(size: Dp) {
+    val greenColor = Color(0xFF2D6A30)
+    val mintFill = Color(0xFFCFECCF)
+
+    Canvas(modifier = Modifier.size(size)) {
+        val w = this.size.width
+        val h = this.size.height
+
+        // 1. Main large light-mint circle
+        drawCircle(
+            color = mintFill,
+            radius = w * 0.47f,
+            center = Offset(w * 0.5f, h * 0.5f)
+        )
+
+        // 2. Shield outline inside circle (slightly left-top of center)
+        val sx = w * 0.45f
+        val sy = h * 0.19f
+        val sw = w * 0.44f
+        val sh = h * 0.56f
+        val shieldPath = Path().apply {
+            moveTo(sx, sy)
+            lineTo(sx + sw * 0.5f, sy + sh * 0.14f)
+            lineTo(sx + sw * 0.5f, sy + sh * 0.52f)
+            quadraticTo(sx + sw * 0.5f, sy + sh * 0.84f, sx, sy + sh)
+            quadraticTo(sx - sw * 0.5f, sy + sh * 0.84f, sx - sw * 0.5f, sy + sh * 0.52f)
+            lineTo(sx - sw * 0.5f, sy + sh * 0.14f)
+            close()
+        }
+        drawPath(
+            path = shieldPath,
+            color = greenColor,
+            style = Stroke(width = 5.5.dp.toPx(), join = StrokeJoin.Round)
+        )
+
+        // 3. Medical Cross '+' inside shield
+        val crossCenterY = sy + sh * 0.47f
+        val crossArm = sw * 0.21f
+        val crossStroke = 5.5.dp.toPx()
+        drawLine(
+            color = greenColor,
+            start = Offset(sx - crossArm, crossCenterY),
+            end = Offset(sx + crossArm, crossCenterY),
+            strokeWidth = crossStroke,
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = greenColor,
+            start = Offset(sx, crossCenterY - crossArm),
+            end = Offset(sx, crossCenterY + crossArm),
+            strokeWidth = crossStroke,
+            cap = StrokeCap.Round
+        )
+
+        // 4. Overlapping Health/Insurance Card at bottom-right
+        val cardLeft = w * 0.48f
+        val cardTop = h * 0.54f
+        val cardW = w * 0.34f
+        val cardH = h * 0.23f
+
+        // Mint halo around card
+        drawRoundRect(
+            color = mintFill,
+            topLeft = Offset(cardLeft - 3.dp.toPx(), cardTop - 3.dp.toPx()),
+            size = Size(cardW + 6.dp.toPx(), cardH + 6.dp.toPx()),
+            cornerRadius = CornerRadius(6.dp.toPx(), 6.dp.toPx())
+        )
+        // Green card body
+        drawRoundRect(
+            color = greenColor,
+            topLeft = Offset(cardLeft, cardTop),
+            size = Size(cardW, cardH),
+            cornerRadius = CornerRadius(5.dp.toPx(), 5.dp.toPx())
+        )
+        // Small '+' on the left of the card
+        val cPlusX = cardLeft + cardW * 0.25f
+        val cPlusY = cardTop + cardH * 0.45f
+        val cArm = cardH * 0.18f
+        drawLine(
+            color = mintFill,
+            start = Offset(cPlusX - cArm, cPlusY),
+            end = Offset(cPlusX + cArm, cPlusY),
+            strokeWidth = 2.6.dp.toPx(),
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = mintFill,
+            start = Offset(cPlusX, cPlusY - cArm),
+            end = Offset(cPlusX, cPlusY + cArm),
+            strokeWidth = 2.6.dp.toPx(),
+            cap = StrokeCap.Round
+        )
+        // Horizontal card lines at bottom/right
+        drawLine(
+            color = mintFill,
+            start = Offset(cardLeft + cardW * 0.14f, cardTop + cardH * 0.78f),
+            end = Offset(cardLeft + cardW * 0.86f, cardTop + cardH * 0.78f),
+            strokeWidth = 2.2.dp.toPx(),
+            cap = StrokeCap.Round
         )
     }
 }
 
 @Composable
-private fun KioskPrimaryCard(
+private fun GiantSolidServiceCard(
     modifier: Modifier = Modifier,
-    badgeText: String,
-    categoryTag: String,
+    topTag: String,
     title: String,
-    description: String,
-    ctaText: String,
-    accentColor: Color,
-    containerTint: Color,
-    iconType: String,
+    subtitle: String,
+    backgroundColor: Color,
+    badgeCircleColor: Color,
     onClick: () -> Unit
 ) {
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(28.dp),
-        color = Color.White,
-        shadowElevation = 3.dp,
-        border = BorderStroke(1.5.dp, Color(0xFFE6DFDE)),
+        shape = RoundedCornerShape(18.dp),
+        color = backgroundColor,
+        shadowElevation = 5.dp,
         modifier = modifier
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(18.dp),
+                .padding(horizontal = 18.dp, vertical = 18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(containerTint),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        KioskVectorIcon(type = iconType, tint = accentColor, size = 22.dp)
-                    }
+            Text(
+                text = topTag,
+                fontSize = 14.sp,
+                lineHeight = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                textAlign = TextAlign.Center
+            )
 
-                    Surface(
-                        color = containerTint.copy(alpha = 0.65f),
-                        shape = CircleShape
-                    ) {
-                        Text(
-                            text = badgeText,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = accentColor
-                        )
-                    }
-                }
-
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        text = categoryTag,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = accentColor,
-                        letterSpacing = 0.8.sp
-                    )
-                    Text(
-                        text = title,
-                        fontSize = 19.sp,
-                        lineHeight = 23.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = SunshineTextPrimary
-                    )
-                }
-
-                Text(
-                    text = description,
-                    fontSize = 11.5.sp,
-                    lineHeight = 15.5.sp,
-                    color = SunshineTextSecondary,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = accentColor,
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(42.dp)
+                    .size(110.dp)
+                    .clip(CircleShape)
+                    .background(badgeCircleColor),
+                contentAlignment = Alignment.Center
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = ctaText,
-                        fontSize = 12.5.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color.White
+                Canvas(modifier = Modifier.size(54.dp)) {
+                    val w = size.width
+                    val h = size.height
+                    drawCircle(
+                        color = backgroundColor,
+                        radius = w * 0.45f,
+                        style = Stroke(width = 4.5.dp.toPx())
                     )
-                    KioskVectorIcon(type = "ARROW_RIGHT", tint = Color.White, size = 16.dp)
+                    drawLine(
+                        color = backgroundColor,
+                        start = Offset(w * 0.5f, h * 0.25f),
+                        end = Offset(w * 0.5f, h * 0.75f),
+                        strokeWidth = 4.5.dp.toPx(),
+                        cap = StrokeCap.Round
+                    )
+                    drawLine(
+                        color = backgroundColor,
+                        start = Offset(w * 0.25f, h * 0.5f),
+                        end = Offset(w * 0.75f, h * 0.5f),
+                        strokeWidth = 4.5.dp.toPx(),
+                        cap = StrokeCap.Round
+                    )
                 }
             }
+
+            Text(
+                text = title,
+                fontSize = 25.sp,
+                lineHeight = 30.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White,
+                textAlign = TextAlign.Center
+            )
+
+            Text(
+                text = subtitle,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Normal,
+                color = Color.White.copy(alpha = 0.95f),
+                textAlign = TextAlign.Center
+            )
         }
+    }
+}
+
+@Composable
+private fun UndoReturnArrowIcon(tint: Color, size: Dp) {
+    Canvas(modifier = Modifier.size(size)) {
+        val w = this.size.width
+        val h = this.size.height
+        val stroke = 2.4.dp.toPx()
+
+        // Left-pointing arrow head at top-left
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.42f, h * 0.20f),
+            end = Offset(w * 0.20f, h * 0.38f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.20f, h * 0.38f),
+            end = Offset(w * 0.42f, h * 0.56f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+
+        // Horizontal top bar + right U-turn curve
+        val path = Path().apply {
+            moveTo(w * 0.22f, h * 0.38f)
+            lineTo(w * 0.62f, h * 0.38f)
+            quadraticTo(w * 0.84f, h * 0.38f, w * 0.84f, h * 0.60f)
+            quadraticTo(w * 0.84f, h * 0.82f, w * 0.62f, h * 0.82f)
+            lineTo(w * 0.30f, h * 0.82f)
+        }
+        drawPath(
+            path = path,
+            color = tint,
+            style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        )
     }
 }
 
@@ -1213,172 +1259,5 @@ private fun DashedReceiptDivider() {
             strokeWidth = 3f,
             pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f), 0f)
         )
-    }
-}
-
-@Composable
-private fun KioskVectorIcon(
-    type: String,
-    tint: Color,
-    size: Dp
-) {
-    Canvas(modifier = Modifier.size(size)) {
-        val stroke = Stroke(width = 2.4.dp.toPx(), cap = StrokeCap.Round)
-        val w = this.size.width
-        val h = this.size.height
-
-        when (type) {
-            "MEDICAL" -> {
-                // Clean Medical Cross inside rounded shield/circle
-                drawCircle(color = tint, radius = w * 0.44f, style = stroke)
-                drawLine(
-                    color = tint,
-                    start = Offset(w * 0.5f, h * 0.28f),
-                    end = Offset(w * 0.5f, h * 0.72f),
-                    strokeWidth = 2.6.dp.toPx(),
-                    cap = StrokeCap.Round
-                )
-                drawLine(
-                    color = tint,
-                    start = Offset(w * 0.28f, h * 0.5f),
-                    end = Offset(w * 0.72f, h * 0.5f),
-                    strokeWidth = 2.6.dp.toPx(),
-                    cap = StrokeCap.Round
-                )
-            }
-            "CALENDAR" -> {
-                drawRoundRect(
-                    color = tint,
-                    topLeft = Offset(w * 0.14f, h * 0.22f),
-                    size = Size(w * 0.72f, h * 0.64f),
-                    cornerRadius = CornerRadius(6.dp.toPx(), 6.dp.toPx()),
-                    style = stroke
-                )
-                drawLine(
-                    color = tint,
-                    start = Offset(w * 0.14f, h * 0.42f),
-                    end = Offset(w * 0.86f, h * 0.42f),
-                    strokeWidth = 2.2.dp.toPx()
-                )
-                drawLine(
-                    color = tint,
-                    start = Offset(w * 0.34f, h * 0.12f),
-                    end = Offset(w * 0.34f, h * 0.28f),
-                    strokeWidth = 2.4.dp.toPx(),
-                    cap = StrokeCap.Round
-                )
-                drawLine(
-                    color = tint,
-                    start = Offset(w * 0.66f, h * 0.12f),
-                    end = Offset(w * 0.66f, h * 0.28f),
-                    strokeWidth = 2.4.dp.toPx(),
-                    cap = StrokeCap.Round
-                )
-            }
-            "SHIELD" -> {
-                val path = Path().apply {
-                    moveTo(w * 0.5f, h * 0.12f)
-                    lineTo(w * 0.84f, h * 0.26f)
-                    lineTo(w * 0.84f, h * 0.54f)
-                    quadraticTo(w * 0.84f, h * 0.80f, w * 0.5f, h * 0.90f)
-                    quadraticTo(w * 0.16f, h * 0.80f, w * 0.16f, h * 0.54f)
-                    lineTo(w * 0.16f, h * 0.26f)
-                    close()
-                }
-                drawPath(path = path, color = tint, style = stroke)
-                drawLine(
-                    color = tint,
-                    start = Offset(w * 0.36f, h * 0.52f),
-                    end = Offset(w * 0.47f, h * 0.63f),
-                    strokeWidth = 2.4.dp.toPx(),
-                    cap = StrokeCap.Round
-                )
-                drawLine(
-                    color = tint,
-                    start = Offset(w * 0.47f, h * 0.63f),
-                    end = Offset(w * 0.66f, h * 0.40f),
-                    strokeWidth = 2.4.dp.toPx(),
-                    cap = StrokeCap.Round
-                )
-            }
-            "RECEIPT" -> {
-                drawRoundRect(
-                    color = tint,
-                    topLeft = Offset(w * 0.20f, h * 0.14f),
-                    size = Size(w * 0.60f, h * 0.72f),
-                    cornerRadius = CornerRadius(5.dp.toPx(), 5.dp.toPx()),
-                    style = stroke
-                )
-                drawLine(
-                    color = tint,
-                    start = Offset(w * 0.34f, h * 0.36f),
-                    end = Offset(w * 0.66f, h * 0.36f),
-                    strokeWidth = 2.2.dp.toPx(),
-                    cap = StrokeCap.Round
-                )
-                drawLine(
-                    color = tint,
-                    start = Offset(w * 0.34f, h * 0.52f),
-                    end = Offset(w * 0.66f, h * 0.52f),
-                    strokeWidth = 2.2.dp.toPx(),
-                    cap = StrokeCap.Round
-                )
-                drawLine(
-                    color = tint,
-                    start = Offset(w * 0.34f, h * 0.68f),
-                    end = Offset(w * 0.54f, h * 0.68f),
-                    strokeWidth = 2.2.dp.toPx(),
-                    cap = StrokeCap.Round
-                )
-            }
-            "RETURN" -> {
-                drawArc(
-                    color = tint,
-                    startAngle = 35f,
-                    sweepAngle = 275f,
-                    useCenter = false,
-                    topLeft = Offset(w * 0.16f, h * 0.16f),
-                    size = Size(w * 0.68f, h * 0.68f),
-                    style = stroke
-                )
-                drawLine(
-                    color = tint,
-                    start = Offset(w * 0.62f, h * 0.14f),
-                    end = Offset(w * 0.84f, h * 0.24f),
-                    strokeWidth = 2.4.dp.toPx(),
-                    cap = StrokeCap.Round
-                )
-                drawLine(
-                    color = tint,
-                    start = Offset(w * 0.84f, h * 0.24f),
-                    end = Offset(w * 0.68f, h * 0.42f),
-                    strokeWidth = 2.4.dp.toPx(),
-                    cap = StrokeCap.Round
-                )
-            }
-            "ARROW_RIGHT" -> {
-                drawLine(
-                    color = tint,
-                    start = Offset(w * 0.18f, h * 0.5f),
-                    end = Offset(w * 0.82f, h * 0.5f),
-                    strokeWidth = 2.4.dp.toPx(),
-                    cap = StrokeCap.Round
-                )
-                drawLine(
-                    color = tint,
-                    start = Offset(w * 0.56f, h * 0.24f),
-                    end = Offset(w * 0.82f, h * 0.5f),
-                    strokeWidth = 2.4.dp.toPx(),
-                    cap = StrokeCap.Round
-                )
-                drawLine(
-                    color = tint,
-                    start = Offset(w * 0.56f, h * 0.76f),
-                    end = Offset(w * 0.82f, h * 0.5f),
-                    strokeWidth = 2.4.dp.toPx(),
-                    cap = StrokeCap.Round
-                )
-            }
-        }
     }
 }
