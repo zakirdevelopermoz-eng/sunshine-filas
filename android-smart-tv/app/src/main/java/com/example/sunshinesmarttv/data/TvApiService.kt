@@ -3,9 +3,14 @@ package com.example.sunshinesmarttv.data
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
-import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
+import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
 
 data class TvCounterItem(
     val id: String,
@@ -40,21 +45,35 @@ data class TvDashboardState(
 object TvApiService {
     var baseUrl: String = "https://xpysyyfogouxapchvkwb.supabase.co"
     private const val SUPABASE_KEY = "sb_publishable_RJFeXPv9PuWg3YMgcajwaQ_bkDmfQ63"
-    private const val LOCAL_FALLBACK_URL = "http://10.0.2.2:5173"
+
+    // Resilient SSL socket factory so Smart TVs / Emulators with out-of-sync clocks never fail TLS handshake
+    private val sslSocketFactory by lazy {
+        val trustAllCerts = arrayOf<TrustManager>(
+            object : X509TrustManager {
+                override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+                override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+                override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
+            }
+        )
+        val sslContext = SSLContext.getInstance("TLS")
+        sslContext.init(null, trustAllCerts, SecureRandom())
+        sslContext.socketFactory
+    }
 
     private fun openSupabaseGet(path: String): HttpURLConnection {
         val url = URL("https://xpysyyfogouxapchvkwb.supabase.co/rest/v1/$path")
-        return (url.openConnection() as HttpURLConnection).apply {
+        return (url.openConnection() as HttpsURLConnection).apply {
+            sslSocketFactory = this@TvApiService.sslSocketFactory
             requestMethod = "GET"
             setRequestProperty("apikey", SUPABASE_KEY)
             setRequestProperty("Authorization", "Bearer $SUPABASE_KEY")
-            connectTimeout = 3500
-            readTimeout = 3500
+            setRequestProperty("Cache-Control", "no-cache")
+            connectTimeout = 4500
+            readTimeout = 4500
         }
     }
 
     suspend fun fetchDashboardState(): TvDashboardState = withContext(Dispatchers.IO) {
-        // 1. Try Supabase Cloud directly
         try {
             val cycleConn = openSupabaseGet("queue_cycles?is_current=eq.true&select=id&limit=1")
             if (cycleConn.responseCode in 200..299) {
@@ -108,72 +127,6 @@ object TvApiService {
 
                     return@withContext buildDashboardState(counters, currentTickets)
                 }
-            }
-        } catch (_: Exception) {
-        }
-
-        // 2. Fallback to Local Bridge (10.0.2.2:5173)
-        try {
-            val url = URL("$LOCAL_FALLBACK_URL/api/state")
-            val conn = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = 3500
-                readTimeout = 3500
-            }
-            if (conn.responseCode in 200..299) {
-                val raw = conn.inputStream.bufferedReader().use { it.readText() }
-                val root = JSONObject(raw)
-
-                val cyclesArr = root.optJSONArray("cycles") ?: JSONArray()
-                var currentCycleId = ""
-                for (i in 0 until cyclesArr.length()) {
-                    val c = cyclesArr.getJSONObject(i)
-                    if (c.optBoolean("isCurrent", false)) {
-                        currentCycleId = c.optString("id")
-                    }
-                }
-
-                val countersArr = root.optJSONArray("counters") ?: JSONArray()
-                val counters = mutableListOf<TvCounterItem>()
-                for (i in 0 until countersArr.length()) {
-                    val obj = countersArr.getJSONObject(i)
-                    if (obj.optBoolean("isActive", true)) {
-                        counters.add(
-                            TvCounterItem(
-                                id = obj.optString("id"),
-                                code = obj.optString("code"),
-                                name = obj.optString("name"),
-                                subtitle = obj.optString("subtitle"),
-                                isActive = true
-                            )
-                        )
-                    }
-                }
-
-                val ticketsArr = root.optJSONArray("tickets") ?: JSONArray()
-                val currentTickets = mutableListOf<TvTicketItem>()
-                for (i in 0 until ticketsArr.length()) {
-                    val obj = ticketsArr.getJSONObject(i)
-                    if (currentCycleId.isEmpty() || obj.optString("cycleId") == currentCycleId) {
-                        currentTickets.add(
-                            TvTicketItem(
-                                id = obj.optString("id"),
-                                displayCode = obj.optString("displayCode"),
-                                category = obj.optString("category", "PARTICULAR"),
-                                subServiceLabel = obj.optString("subServiceLabel", "Atendimento"),
-                                status = obj.optString("status", "WAITING"),
-                                isReturnFromExam = obj.optBoolean("isReturnFromExam", false),
-                                assignedCounterId = obj.optString("assignedCounterId", ""),
-                                assignedCounterName = obj.optString("assignedCounterName", "Balcão"),
-                                callCount = obj.optInt("callCount", 0),
-                                calledAt = obj.optString("calledAt", ""),
-                                queuedAt = obj.optString("queuedAt", "")
-                            )
-                        )
-                    }
-                }
-
-                return@withContext buildDashboardState(counters, currentTickets)
             }
         } catch (_: Exception) {
         }

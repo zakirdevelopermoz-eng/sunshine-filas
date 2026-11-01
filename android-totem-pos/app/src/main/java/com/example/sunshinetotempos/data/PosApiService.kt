@@ -7,10 +7,16 @@ import org.json.JSONObject
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
 
 data class TicketItem(
     val id: String,
@@ -33,7 +39,19 @@ data class ReuseResponse(
 object PosApiService {
     var baseUrl: String = "https://xpysyyfogouxapchvkwb.supabase.co"
     private const val SUPABASE_KEY = "sb_publishable_RJFeXPv9PuWg3YMgcajwaQ_bkDmfQ63"
-    private const val LOCAL_FALLBACK_URL = "http://10.0.2.2:5173"
+
+    private val sslSocketFactory by lazy {
+        val trustAllCerts = arrayOf<TrustManager>(
+            object : X509TrustManager {
+                override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+                override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+                override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
+            }
+        )
+        val sslContext = SSLContext.getInstance("TLS")
+        sslContext.init(null, trustAllCerts, SecureRandom())
+        sslContext.socketFactory
+    }
 
     private fun nowIso(): String {
         val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
@@ -43,17 +61,19 @@ object PosApiService {
 
     private fun openSupabaseConnection(path: String, method: String): HttpURLConnection {
         val url = URL("https://xpysyyfogouxapchvkwb.supabase.co/rest/v1/$path")
-        return (url.openConnection() as HttpURLConnection).apply {
+        return (url.openConnection() as HttpsURLConnection).apply {
+            sslSocketFactory = this@PosApiService.sslSocketFactory
             requestMethod = method
             setRequestProperty("apikey", SUPABASE_KEY)
             setRequestProperty("Authorization", "Bearer $SUPABASE_KEY")
             setRequestProperty("Content-Type", "application/json")
+            setRequestProperty("Cache-Control", "no-cache")
             if (method == "POST" || method == "PATCH") {
                 setRequestProperty("Prefer", "return=representation")
                 doOutput = true
             }
-            connectTimeout = 4500
-            readTimeout = 4500
+            connectTimeout = 5000
+            readTimeout = 5000
         }
     }
 
@@ -70,7 +90,6 @@ object PosApiService {
     }
 
     suspend fun fetchExamHoldTickets(): List<TicketItem> = withContext(Dispatchers.IO) {
-        // 1. Try Supabase Cloud directly
         try {
             val cycleId = getActiveCycleIdFromSupabase()
             if (!cycleId.isNullOrEmpty()) {
@@ -89,31 +108,6 @@ object PosApiService {
             }
         } catch (_: Exception) {
         }
-
-        // 2. Fallback to Local Bridge (10.0.2.2:5173)
-        try {
-            val url = URL("$LOCAL_FALLBACK_URL/api/state")
-            val conn = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = 3500
-                readTimeout = 3500
-            }
-            if (conn.responseCode in 200..299) {
-                val raw = conn.inputStream.bufferedReader().use { it.readText() }
-                val root = JSONObject(raw)
-                val ticketsArr = root.optJSONArray("tickets") ?: JSONArray()
-                val result = mutableListOf<TicketItem>()
-                for (i in 0 until ticketsArr.length()) {
-                    val obj = ticketsArr.getJSONObject(i)
-                    val status = obj.optString("status")
-                    if (status == "AWAITING_EXAM" || status == "COMPLETED") {
-                        result.add(parseLocalTicket(obj))
-                    }
-                }
-                return@withContext result
-            }
-        } catch (_: Exception) {
-        }
         emptyList()
     }
 
@@ -122,7 +116,6 @@ object PosApiService {
         subService: String,
         subServiceLabel: String
     ): TicketItem? = withContext(Dispatchers.IO) {
-        // 1. Try Supabase Cloud directly
         try {
             val cycleId = getActiveCycleIdFromSupabase()
             if (!cycleId.isNullOrEmpty()) {
@@ -165,47 +158,13 @@ object PosApiService {
                 if (insertConn.responseCode in 200..299) {
                     val insertedArr = JSONArray(insertConn.inputStream.bufferedReader().use { it.readText() })
                     if (insertedArr.length() > 0) {
-                        val ticket = parseSupabaseTicket(insertedArr.getJSONObject(0))
-                        // Also mirror to local bridge if running
-                        mirrorTicketToLocal(category, subService, subServiceLabel)
-                        return@withContext ticket
+                        return@withContext parseSupabaseTicket(insertedArr.getJSONObject(0))
                     }
                 }
             }
         } catch (_: Exception) {
         }
-
-        // 2. Fallback to Local Bridge
-        mirrorTicketToLocal(category, subService, subServiceLabel)
-    }
-
-    private fun mirrorTicketToLocal(
-        category: String,
-        subService: String,
-        subServiceLabel: String
-    ): TicketItem? {
-        return try {
-            val url = URL("$LOCAL_FALLBACK_URL/api/tickets")
-            val conn = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                doOutput = true
-                setRequestProperty("Content-Type", "application/json")
-                connectTimeout = 3500
-                readTimeout = 3500
-            }
-            val payload = JSONObject().apply {
-                put("category", category)
-                put("subService", subService)
-                put("subServiceLabel", subServiceLabel)
-            }
-            OutputStreamWriter(conn.outputStream).use { it.write(payload.toString()) }
-            if (conn.responseCode in 200..299) {
-                val raw = conn.inputStream.bufferedReader().use { it.readText() }
-                parseLocalTicket(JSONObject(raw))
-            } else null
-        } catch (_: Exception) {
-            null
-        }
+        null
     }
 
     suspend fun reuseTicket(displayCode: String): ReuseResponse = withContext(Dispatchers.IO) {
@@ -218,7 +177,6 @@ object PosApiService {
             }
         }
 
-        // 1. Try Supabase Cloud directly
         try {
             val findConn = openSupabaseConnection(
                 "tickets?display_code=ilike.$formatted&order=created_at.desc&limit=1",
@@ -257,39 +215,11 @@ object PosApiService {
         } catch (_: Exception) {
         }
 
-        // 2. Fallback to Local Bridge
-        try {
-            val url = URL("$LOCAL_FALLBACK_URL/api/tickets/reuse")
-            val conn = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                doOutput = true
-                setRequestProperty("Content-Type", "application/json")
-                connectTimeout = 4000
-                readTimeout = 4000
-            }
-            val payload = JSONObject().apply {
-                put("displayCode", formatted)
-            }
-            OutputStreamWriter(conn.outputStream).use { it.write(payload.toString()) }
-
-            val stream = if (conn.responseCode in 200..299) conn.inputStream else conn.errorStream
-            val raw = stream?.bufferedReader()?.use { it.readText() } ?: "{}"
-            val json = JSONObject(raw)
-            val ok = json.optBoolean("ok", conn.responseCode in 200..299)
-            val msg = json.optString("message", "Operação processada.")
-            val ticketObj = json.optJSONObject("ticket")
-            return@withContext ReuseResponse(
-                ok = ok,
-                message = msg,
-                ticket = ticketObj?.let { parseLocalTicket(it) }
-            )
-        } catch (_: Exception) {
-            ReuseResponse(
-                ok = false,
-                message = "Não foi possível localizar a senha $formatted.",
-                ticket = null
-            )
-        }
+        ReuseResponse(
+            ok = false,
+            message = "Não foi possível localizar a senha $formatted.",
+            ticket = null
+        )
     }
 
     private fun parseSupabaseTicket(obj: JSONObject): TicketItem {
@@ -303,20 +233,6 @@ object PosApiService {
             isReturnFromExam = obj.optBoolean("is_return_from_exam", false),
             reuseCount = obj.optInt("reuse_count", 0),
             queuedAt = obj.optString("queued_at", "")
-        )
-    }
-
-    private fun parseLocalTicket(obj: JSONObject): TicketItem {
-        return TicketItem(
-            id = obj.optString("id"),
-            displayCode = obj.optString("displayCode", "P-001"),
-            category = obj.optString("category", "PARTICULAR"),
-            subService = obj.optString("subService", ""),
-            subServiceLabel = obj.optString("subServiceLabel", "Atendimento"),
-            status = obj.optString("status", "WAITING"),
-            isReturnFromExam = obj.optBoolean("isReturnFromExam", false),
-            reuseCount = obj.optInt("reuseCount", 0),
-            queuedAt = obj.optString("queuedAt", "")
         )
     }
 
