@@ -1,9 +1,13 @@
 package com.example.sunshinesmarttv
 
+import android.content.Context
+import android.media.AudioAttributes
 import android.media.AudioManager
+import android.media.MediaPlayer
 import android.media.ToneGenerator
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
+import androidx.lifecycle.lifecycleScope
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -37,7 +41,12 @@ import com.example.sunshinesmarttv.data.TvApiService
 import com.example.sunshinesmarttv.data.TvDashboardState
 import com.example.sunshinesmarttv.data.TvTicketItem
 import com.example.sunshinesmarttv.theme.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.net.URLEncoder
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -45,9 +54,20 @@ import java.util.Locale
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var tts: TextToSpeech? = null
     private var ttsReady = false
+    private var mediaPlayer: MediaPlayer? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Ensure TV media & notification volume are audible
+        try {
+            val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val maxMusic = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            am.setStreamVolume(AudioManager.STREAM_MUSIC, maxMusic, 0)
+            val maxNotif = am.getStreamMaxVolume(AudioManager.STREAM_NOTIFICATION)
+            am.setStreamVolume(AudioManager.STREAM_NOTIFICATION, maxNotif, 0)
+        } catch (_: Exception) {
+        }
+
         tts = TextToSpeech(this, this)
         enableEdgeToEdge()
         setContent {
@@ -63,10 +83,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
-            val ptLocale = Locale("pt", "PT")
+            val ptLocale = Locale.forLanguageTag("pt-PT")
             val result = tts?.setLanguage(ptLocale)
             if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                tts?.setLanguage(Locale("pt", "BR"))
+                tts?.setLanguage(Locale.forLanguageTag("pt-BR"))
             }
             tts?.setSpeechRate(0.92f)
             ttsReady = true
@@ -74,21 +94,66 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun announceCallWithTts(ticket: TvTicketItem) {
+        val spokenCode = ticket.displayCode.replace("-", " ")
+        val returnPhrase = if (ticket.isReturnFromExam) ", retorno de exame, " else ", "
+        val phrase = "Senha $spokenCode$returnPhrase por favor dirigir-se ao ${ticket.assignedCounterName}."
+
+        // 1. Play hospital notification chime in foreground
         try {
-            val toneGen = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 95)
-            toneGen.startTone(ToneGenerator.TONE_PROP_BEEP2, 380)
+            val toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
+            toneGen.startTone(ToneGenerator.TONE_PROP_BEEP2, 420)
         } catch (_: Exception) {
         }
 
-        if (ttsReady) {
-            val spokenCode = ticket.displayCode.replace("-", " ")
-            val returnPhrase = if (ticket.isReturnFromExam) ", retorno de exame, " else ", "
-            val phrase = "Senha $spokenCode$returnPhrase por favor dirigir-se ao ${ticket.assignedCounterName}."
-            tts?.speak(phrase, TextToSpeech.QUEUE_FLUSH, null, "call-${ticket.id}-${ticket.callCount}")
+        // 2. Synthesize & play Portuguese voice directly inside foreground Activity
+        // (avoids Android 16 AudioHardening muting background com.google.android.tts process on emulators)
+        lifecycleScope.launch {
+            delay(450)
+            val playedCloudVoice = withContext(Dispatchers.IO) {
+                try {
+                    val encoded = URLEncoder.encode(phrase, "UTF-8")
+                    val ttsUrl = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=pt-PT&q=$encoded"
+                    val mp3Bytes = TvApiService.downloadAudioBytes(ttsUrl)
+                    if (mp3Bytes != null && mp3Bytes.isNotEmpty()) {
+                        val tempFile = File(cacheDir, "tv_call_voice.mp3")
+                        tempFile.writeBytes(mp3Bytes)
+                        withContext(Dispatchers.Main) {
+                            try {
+                                mediaPlayer?.release()
+                            } catch (_: Exception) {
+                            }
+                            mediaPlayer = MediaPlayer().apply {
+                                setAudioAttributes(
+                                    AudioAttributes.Builder()
+                                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                                        .build()
+                                )
+                                setDataSource(tempFile.absolutePath)
+                                prepare()
+                                start()
+                            }
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                } catch (_: Exception) {
+                    false
+                }
+            }
+
+            if (!playedCloudVoice && ttsReady) {
+                tts?.speak(phrase, TextToSpeech.QUEUE_FLUSH, null, "call-${ticket.id}-${ticket.callCount}")
+            }
         }
     }
 
     override fun onDestroy() {
+        try {
+            mediaPlayer?.release()
+        } catch (_: Exception) {
+        }
         tts?.stop()
         tts?.shutdown()
         super.onDestroy()
@@ -131,11 +196,11 @@ fun SmartTvLoungeScreen(
             val active = next.activeCall
             if (active != null) {
                 val sig = "${active.id}-${active.callCount}-${active.calledAt}"
-                if (lastCallSignature.isNotEmpty() && lastCallSignature != sig) {
+                if (lastCallSignature != sig) {
+                    lastCallSignature = sig
                     highlightActive = true
                     onAnnounceTicket(active)
                 }
-                lastCallSignature = sig
             }
             if (highlightActive) {
                 delay(1400)

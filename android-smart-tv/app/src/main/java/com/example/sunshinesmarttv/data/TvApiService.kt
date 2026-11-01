@@ -73,6 +73,25 @@ object TvApiService {
         }
     }
 
+    fun downloadAudioBytes(urlString: String): ByteArray? {
+        return try {
+            val conn = (URL(urlString).openConnection() as HttpsURLConnection).apply {
+                sslSocketFactory = this@TvApiService.sslSocketFactory
+                requestMethod = "GET"
+                setRequestProperty("User-Agent", "Mozilla/5.0")
+                connectTimeout = 4000
+                readTimeout = 4000
+            }
+            if (conn.responseCode in 200..299) {
+                conn.inputStream.use { it.readBytes() }
+            } else {
+                null
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     suspend fun fetchDashboardState(): TvDashboardState = withContext(Dispatchers.IO) {
         try {
             val cycleConn = openSupabaseGet("queue_cycles?is_current=eq.true&select=id&limit=1")
